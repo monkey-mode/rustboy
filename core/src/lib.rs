@@ -40,13 +40,12 @@ impl Emulator {
         }
     }
 
-    /// Returns a raw pointer to the RGBA frame buffer.
-    /// GB: 160×144×4 = 92160 bytes.
-    /// NES: 256×240×4 = 245760 bytes.
-    pub fn frame_buffer(&self) -> *const u8 {
+    /// Returns the RGBA frame buffer as a copied Vec<u8>.
+    /// GB: 160×144×4 = 92160 bytes. NES: 256×240×4 = 245760 bytes.
+    pub fn frame_buffer(&self) -> Vec<u8> {
         match &self.inner {
-            SystemEmulator::Gb(e) => e.frame_buffer().as_ptr(),
-            SystemEmulator::Nes(e) => e.frame_buffer().as_ptr(),
+            SystemEmulator::Gb(e) => e.frame_buffer().to_vec(),
+            SystemEmulator::Nes(e) => e.frame_buffer().to_vec(),
         }
     }
 

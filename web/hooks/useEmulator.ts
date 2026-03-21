@@ -6,7 +6,9 @@ import { useEffect, useState } from "react";
 export interface WasmEmulator {
   new(rom: Uint8Array): WasmEmulator;
   step_frame(): void;
-  frame_buffer(): number; // pointer into WASM linear memory
+  frame_buffer(): Uint8Array;
+  frame_width(): number;
+  frame_height(): number;
   set_joypad(button: number, pressed: boolean): void;
   audio_buffer(): Float32Array;
   free(): void;
@@ -16,7 +18,6 @@ export interface WasmModule {
   Emulator: {
     new(rom: Uint8Array): WasmEmulator;
   };
-  memory: WebAssembly.Memory;
 }
 
 interface UseEmulatorResult {
@@ -46,10 +47,12 @@ export function useEmulator(): UseEmulatorResult {
     async function loadWasm() {
       try {
         // Dynamic import of the wasm-pack generated JS glue.
-        // The module lives at /public/wasm/ which Next.js serves from /.
-        const wasmJs = await import(
-          /* webpackIgnore: true */ "/wasm/rustboy_core.js"
-        ) as WasmModule & { default: (input?: string) => Promise<void> };
+        // Using a variable + Function constructor bypasses both webpack
+        // static analysis and TypeScript's module resolution check.
+        const wasmUrl = "/wasm/rustboy_core.js";
+        // eslint-disable-next-line @typescript-eslint/no-implied-eval
+        const wasmJs = (await new Function("u", "return import(u)")(wasmUrl)) as
+          WasmModule & { default: (input?: string) => Promise<void> };
 
         // Initialize the WASM binary.
         await wasmJs.default("/wasm/rustboy_core_bg.wasm");

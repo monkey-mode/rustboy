@@ -34,12 +34,14 @@ export default function Controls({ onButton }: ControlsProps) {
     (e: KeyboardEvent, pressed: boolean) => {
       let button: ButtonIndex | null = null;
       switch (e.key) {
-        case "ArrowRight": button = BUTTON.RIGHT;  break;
-        case "ArrowLeft":  button = BUTTON.LEFT;   break;
-        case "ArrowUp":    button = BUTTON.UP;     break;
-        case "ArrowDown":  button = BUTTON.DOWN;   break;
-        case "z": case "Z": button = BUTTON.A;     break;
-        case "x": case "X": button = BUTTON.B;     break;
+        case "ArrowRight": case "d": case "D": button = BUTTON.RIGHT;  break;
+        case "ArrowLeft":  case "a": case "A": button = BUTTON.LEFT;   break;
+        case "ArrowUp":    case "w": case "W": button = BUTTON.UP;     break;
+        case "ArrowDown":  case "s": case "S": button = BUTTON.DOWN;   break;
+        case "z": case "Z": case "j": case "J": button = BUTTON.A;      break;
+        case "x": case "X": case "k": case "K": button = BUTTON.B;      break;
+        case "i": case "I":                      button = BUTTON.SELECT; break;
+        case "l": case "L":                      button = BUTTON.START;  break;
         case "Enter":      button = BUTTON.START;  break;
         case "Shift":      button = BUTTON.SELECT; break;
         default: return;

@@ -10,7 +10,7 @@ export default function Home() {
         RustBoy
       </h1>
       <p className="text-gray-400 text-sm">
-        Game Boy emulator — Rust core compiled to WebAssembly
+        Game Boy &amp; NES emulator — Rust core compiled to WebAssembly
       </p>
       <Emulator />
     </main>

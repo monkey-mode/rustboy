@@ -615,7 +615,9 @@ impl NesApu {
             159.79 / (1.0 / tnd_sum + 100.0)
         };
 
-        ((pulse_out + tnd_out) * 2.0 - 1.0).clamp(-1.0, 1.0)
+        // Scale to [-1, 1] with 0 = silence.
+        // Max combined output is ~0.95, so multiply by ~1.05 to reach full range.
+        ((pulse_out + tnd_out) * 1.05).clamp(-1.0, 1.0)
     }
 
     pub fn get_samples(&mut self) -> Vec<f32> {

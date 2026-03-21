@@ -375,7 +375,7 @@ impl NesPpu {
             // Sprite evaluation
             if self.cycle == 257 {
                 if is_visible {
-                    self.evaluate_sprites();
+                    self.evaluate_sprites(cartridge);
                 } else {
                     self.sprite_count = 0;
                 }
@@ -480,7 +480,7 @@ impl NesPpu {
     // -----------------------------------------------------------------------
     // Sprite evaluation
     // -----------------------------------------------------------------------
-    fn evaluate_sprites(&mut self) {
+    fn evaluate_sprites(&mut self, cartridge: &mut dyn Mapper) {
         let sprite_size = if self.ctrl & 0x20 != 0 { 16u8 } else { 8u8 };
         self.sprite_count = 0;
         self.sprite0_hit_possible = false;
@@ -522,8 +522,8 @@ impl NesPpu {
                     let addr_lo = table + tile * 16 + row;
                     let addr_hi = addr_lo + 8;
 
-                    let mut lo = self.read_vram_cached(addr_lo);
-                    let mut hi = self.read_vram_cached(addr_hi);
+                    let mut lo = self.read_vram(addr_lo, cartridge);
+                    let mut hi = self.read_vram(addr_hi, cartridge);
 
                     if attrs & 0x40 != 0 {
                         // Flip horizontally
@@ -542,27 +542,6 @@ impl NesPpu {
                     break;
                 }
             }
-        }
-    }
-
-    fn read_vram_cached(&self, addr: u16) -> u8 {
-        // We use a simplified read that doesn't need mutable cartridge
-        // For sprite pattern fetches during evaluation
-        // We store the data during the actual rendering pass, but here
-        // we need to read. Since we can't have mut cartridge in this context,
-        // we return the internal nametable/palette reads only.
-        // Pattern table reads are already done via the cartridge borrow in tick().
-        // This is called from evaluate_sprites which runs at cycle 257 within tick().
-        // The cartridge was passed to tick() but we can't pass it here without
-        // changing the architecture. We handle this by reading from the palette/nametable.
-        let addr = addr & 0x3FFF;
-        match addr {
-            0x2000..=0x3EFF => {
-                let mirrored = (addr - 0x2000) as usize & 0x7FF;
-                self.nametable_ram[mirrored % 2048]
-            }
-            0x3F00..=0x3FFF => self.read_palette(addr),
-            _ => 0, // CHR reads can't happen without cartridge here
         }
     }
 

@@ -11,9 +11,6 @@ import Screen from "./Screen";
 import Controls, { ButtonIndex } from "./Controls";
 import { useEmulator, WasmEmulator, WasmModule } from "@/hooks/useEmulator";
 
-const SCREEN_W = 160;
-const SCREEN_H = 144;
-const FRAME_BYTES = SCREEN_W * SCREEN_H * 4; // 92160
 
 export default function Emulator() {
   const { wasmModule, isLoaded, error } = useEmulator();
@@ -24,6 +21,8 @@ export default function Emulator() {
   const nextAudioRef = useRef<number>(0);
 
   const [frameBuffer, setFrameBuffer] = useState<Uint8Array | null>(null);
+  const [screenW,     setScreenW]     = useState(160);
+  const [screenH,     setScreenH]     = useState(144);
   const [romName,     setRomName]     = useState<string | null>(null);
   const [running,     setRunning]     = useState(false);
   const [loadError,   setLoadError]   = useState<string | null>(null);
@@ -43,17 +42,26 @@ export default function Emulator() {
     if (samples.length === 0) return;
     const ctx = ensureAudioContext();
     const buf = ctx.createBuffer(1, samples.length, 44100);
-    buf.copyToChannel(samples, 0);
+    buf.copyToChannel(new Float32Array(samples.buffer as ArrayBuffer, samples.byteOffset, samples.length), 0);
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.connect(ctx.destination);
 
     const now = ctx.currentTime;
-    if (nextAudioRef.current < now) {
-      nextAudioRef.current = now;
+    const LOOKAHEAD = 0.02;  // 20ms minimum ahead
+    const MAX_AHEAD = 0.05;  // 50ms maximum — drop excess to avoid drift
+
+    if (nextAudioRef.current < now + LOOKAHEAD) {
+      nextAudioRef.current = now + LOOKAHEAD;
+    } else if (nextAudioRef.current > now + MAX_AHEAD) {
+      // Queue drifted too far ahead — snap back to prevent growing lag
+      nextAudioRef.current = now + LOOKAHEAD;
     }
+    // NES runs at 60.0988 fps; rAF targets 60.0 fps → audio is 0.16% fast.
+    // Compensate by slowing playback rate: 60.0 / 60.0988 ≈ 0.9984
+    src.playbackRate.value = 60.0 / 60.0988;
     src.start(nextAudioRef.current);
-    nextAudioRef.current += buf.duration;
+    nextAudioRef.current += buf.duration / src.playbackRate.value;
   }
 
   // -----------------------------------------------------------------------
@@ -61,16 +69,11 @@ export default function Emulator() {
   // -----------------------------------------------------------------------
   const frameLoop = useCallback(() => {
     const emu = emulatorRef.current;
-    const wasm = wasmModule;
-    if (!emu || !wasm) return;
+    if (!emu) return;
 
     emu.step_frame();
 
-    // Read frame buffer from WASM linear memory
-    const ptr = emu.frame_buffer();
-    const mem = new Uint8Array((wasm as unknown as { memory: WebAssembly.Memory }).memory.buffer, ptr, FRAME_BYTES);
-    // Copy so React re-renders with stable reference
-    setFrameBuffer(new Uint8Array(mem));
+    setFrameBuffer(emu.frame_buffer());
 
     // Audio
     const rawSamples = emu.audio_buffer();
@@ -109,7 +112,10 @@ export default function Emulator() {
         }
         nextAudioRef.current = 0;
 
-        emulatorRef.current = new (wasmModule as unknown as WasmModule).Emulator(romBytes);
+        const emu = new (wasmModule as unknown as WasmModule).Emulator(romBytes);
+        emulatorRef.current = emu;
+        setScreenW(emu.frame_width());
+        setScreenH(emu.frame_height());
         setRomName(file.name);
         setRunning(true);
       } catch (err) {
@@ -173,12 +179,12 @@ export default function Emulator() {
           htmlFor="rom-input"
           className="cursor-pointer px-4 py-2 bg-green-700 hover:bg-green-600 rounded text-sm font-semibold transition-colors"
         >
-          {romName ? `ROM: ${romName}` : "Load ROM (.gb)"}
+          {romName ? `ROM: ${romName}` : "Load ROM (.gb / .nes)"}
         </label>
         <input
           id="rom-input"
           type="file"
-          accept=".gb,.gbc,.bin"
+          accept=".gb,.gbc,.nes"
           className="hidden"
           onChange={handleRomLoad}
         />
@@ -188,14 +194,14 @@ export default function Emulator() {
       </div>
 
       {/* Screen */}
-      <Screen frameBuffer={frameBuffer} />
+      <Screen frameBuffer={frameBuffer} width={screenW} height={screenH} />
 
       {/* Controls */}
       <Controls onButton={handleButton} />
 
       {/* Keyboard hints */}
       <p className="text-gray-600 text-xs mt-2">
-        Keyboard: Arrows = D-pad · Z = A · X = B · Enter = Start · Shift = Select
+        Keyboard: Arrows / WASD = D-pad · Z/J = A · X/K = B · I = Select · L/Enter = Start · Shift = Select
       </p>
     </div>
   );

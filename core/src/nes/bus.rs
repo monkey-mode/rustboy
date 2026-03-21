@@ -113,9 +113,10 @@ impl NesBus {
 
             // Joypad strobe
             0x4016 => {
+                let prev = self.joypad1_strobe;
                 self.joypad1_strobe = val & 0x01 != 0;
-                if self.joypad1_strobe {
-                    // Reload shift registers from current button state
+                // Latch on falling edge ($01 → $00)
+                if prev && !self.joypad1_strobe {
                     self.joypad1_shift = self.joypad1_state;
                     self.joypad2_shift = self.joypad2_state;
                 }
@@ -155,14 +156,24 @@ impl NesBus {
     }
 
     /// Set joypad button state.
-    /// button: A=0, B=1, Select=2, Start=3, Up=4, Down=5, Left=6, Right=7
+    /// Frontend sends universal indices: Right=0, Left=1, Up=2, Down=3, A=4, B=5, Select=6, Start=7
+    /// NES shift register bit order:     A=0,     B=1,    Select=2, Start=3, Up=4,  Down=5,  Left=6,  Right=7
     pub fn set_joypad(&mut self, button: u8, pressed: bool) {
-        if button < 8 {
-            if pressed {
-                self.joypad1_state |= 1 << button;
-            } else {
-                self.joypad1_state &= !(1 << button);
-            }
+        let bit: u8 = match button {
+            0 => 7, // Right
+            1 => 6, // Left
+            2 => 4, // Up
+            3 => 5, // Down
+            4 => 0, // A
+            5 => 1, // B
+            6 => 2, // Select
+            7 => 3, // Start
+            _ => return,
+        };
+        if pressed {
+            self.joypad1_state |= 1 << bit;
+        } else {
+            self.joypad1_state &= !(1 << bit);
         }
     }
 }
