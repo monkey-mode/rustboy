@@ -9,6 +9,7 @@ web/public/wasm/
 web/.next/
 web/out/
 web/node_modules/
+web/*.tsbuildinfo
 
 # OS
 .DS_Store

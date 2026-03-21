@@ -10,6 +10,7 @@ import {
 import Screen from "./Screen";
 import Controls, { ButtonIndex } from "./Controls";
 import { useEmulator, WasmEmulator, WasmModule } from "@/hooks/useEmulator";
+import { systemAccent } from "@/lib/theme";
 
 
 export default function Emulator() {
@@ -250,24 +251,39 @@ export default function Emulator() {
     );
   }
 
-  const systemColor = system === "NES"
-    ? "text-red-400 border-red-800 bg-red-950/40"
-    : "text-green-400 border-green-800 bg-green-950/40";
+
+  const panelHeader = (label: string) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+      <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, #2a2a2a)" }} />
+      <span style={{ color: "#333", fontSize: 9, letterSpacing: "0.25em", fontFamily: "monospace", textTransform: "uppercase" }}>{label}</span>
+      <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, #2a2a2a, transparent)" }} />
+    </div>
+  );
+
+  const sysAccent = systemAccent(system);
 
   return (
     <div className="flex items-start gap-5">
 
       {/* ── Left panel ── */}
-      <aside className="flex flex-col gap-4 w-40 pt-1">
-        {/* Load ROM */}
+      <aside className="flex flex-col gap-3 w-40 pt-1">
+
+        {/* Load ROM button */}
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="rom-input"
-            className="cursor-pointer text-center px-3 py-2 rounded-lg border border-green-800
-              bg-green-950/40 hover:bg-green-900/50 text-green-400 text-xs font-semibold
-              tracking-wide transition-colors"
+            style={{
+              display: "block", textAlign: "center",
+              padding: "8px 12px", borderRadius: 8, cursor: "pointer",
+              fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
+              color: "#4ade80",
+              background: "linear-gradient(180deg, rgba(20,60,20,0.6) 0%, rgba(10,30,10,0.4) 100%)",
+              border: "1px solid #1a4a1a",
+              boxShadow: "0 0 12px rgba(74,222,128,0.08), inset 0 1px 0 rgba(74,222,128,0.1)",
+              transition: "all 0.2s",
+            }}
           >
-            {romName ? "Change ROM" : "Load ROM"}
+            {romName ? "⏏ Change ROM" : "▶ Load ROM"}
           </label>
           <input id="rom-input" type="file" accept=".gb,.gbc,.nes"
             className="hidden" onChange={handleRomLoad} />
@@ -275,88 +291,169 @@ export default function Emulator() {
         </div>
 
         {/* Keyboard reference */}
-        <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3 flex flex-col gap-1.5">
-          <p className="text-gray-500 text-[10px] uppercase tracking-widest mb-1">Keyboard</p>
-          {[
-            ["WASD", "D-pad"],
-            ["J", "A"],
-            ["K", "B"],
-            ["I", "Select"],
-            ["L", "Start"],
-          ].map(([key, action]) => (
-            <div key={key} className="flex justify-between items-center">
-              <span className="text-gray-400 text-[10px] font-mono">{key}</span>
-              <span className="text-gray-600 text-[10px]">{action}</span>
-            </div>
-          ))}
+        <div style={{
+          borderRadius: 8, padding: "10px 12px",
+          background: "rgba(10,10,10,0.6)",
+          border: "1px solid #1a1a1a",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+        }}>
+          {panelHeader("Keys")}
+          {/* WASD cluster */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, marginBottom: 8 }}>
+            {[
+              [{ k: "W", sub: "▲" }],
+              [{ k: "A", sub: "◀" }, { k: "S", sub: "▼" }, { k: "D", sub: "▶" }],
+            ].map((row, ri) => (
+              <div key={ri} style={{ display: "flex", gap: 2 }}>
+                {row.map(({ k, sub }) => (
+                  <div key={k} style={{
+                    width: 26, height: 26, borderRadius: 5,
+                    background: "linear-gradient(180deg, #1e1e1e 0%, #161616 100%)",
+                    border: "1px solid #2a2a2a", borderBottom: "2px solid #0a0a0a",
+                    display: "flex", flexDirection: "column",
+                    alignItems: "center", justifyContent: "center",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
+                  }}>
+                    <span style={{ color: "#3a3a3a", fontSize: 9, fontFamily: "monospace", fontWeight: 700, lineHeight: 1 }}>{k}</span>
+                    <span style={{ color: "#252525", fontSize: 6, lineHeight: 1 }}>{sub}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {/* IJKL cluster */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+            {[
+              [{ k: "I", label: "SEL" }],
+              [{ k: "J", label: "A" }, { k: "K", label: "B" }, { k: "L", label: "STA" }],
+            ].map((row, ri) => (
+              <div key={ri} style={{ display: "flex", gap: 2 }}>
+                {row.map(({ k, label }) => (
+                  <div key={k} style={{
+                    width: 26, height: 26, borderRadius: 5,
+                    background: "linear-gradient(180deg, #1e1e1e 0%, #161616 100%)",
+                    border: "1px solid #2a2a2a", borderBottom: "2px solid #0a0a0a",
+                    display: "flex", flexDirection: "column",
+                    alignItems: "center", justifyContent: "center",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
+                  }}>
+                    <span style={{ color: "#3a3a3a", fontSize: 9, fontFamily: "monospace", fontWeight: 700, lineHeight: 1 }}>{k}</span>
+                    <span style={{ color: "#252525", fontSize: 6, lineHeight: 1 }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Status indicator */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
+          borderRadius: 8, background: "rgba(10,10,10,0.4)", border: "1px solid #181818",
+        }}>
+          <div style={{
+            width: 6, height: 6, borderRadius: "50%",
+            background: running ? sysAccent : "#1a1a1a",
+            boxShadow: running ? `0 0 6px ${sysAccent}` : "none",
+            animation: running ? "led-pulse 2s ease-in-out infinite" : "none",
+            flexShrink: 0,
+          }} />
+          <span style={{ color: running ? "#2a3a2a" : "#1f1f1f", fontSize: 9,
+            fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+            {running ? "Running" : "Standby"}
+          </span>
         </div>
       </aside>
 
-      {/* ── Center: screen + controller bar ── */}
-      <div className="flex flex-col">
-        <Screen frameBuffer={frameBuffer} width={screenW} height={screenH} />
+      {/* ── Center: screen + controller ── */}
+      <div className="flex flex-col" style={{
+        filter: "drop-shadow(0 20px 60px rgba(0,0,0,0.8))",
+      }}>
+        <Screen frameBuffer={frameBuffer} width={screenW} height={screenH} system={system} />
         <Controls onButton={handleButton} />
       </div>
 
       {/* ── Right panel ── */}
-      <aside className="flex flex-col gap-4 w-40 pt-1">
-        {/* System + ROM info */}
-        <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3 flex flex-col gap-2">
+      <aside className="flex flex-col gap-3 w-40 pt-1">
+
+        {/* System info */}
+        <div style={{
+          borderRadius: 8, padding: "10px 12px",
+          background: "rgba(10,10,10,0.6)",
+          border: `1px solid ${system ? sysAccent + "33" : "#1a1a1a"}`,
+          boxShadow: system ? `0 0 20px ${sysAccent}0d, inset 0 1px 0 rgba(255,255,255,0.03)` : "inset 0 1px 0 rgba(255,255,255,0.03)",
+          transition: "border-color 0.4s, box-shadow 0.4s",
+        }}>
+          {panelHeader("System")}
           {system ? (
-            <span className={`self-start text-xs font-mono font-bold px-2 py-0.5 rounded border ${systemColor}`}>
-              {system}
-            </span>
+            <>
+              <div style={{
+                display: "inline-block", padding: "2px 8px", borderRadius: 4, marginBottom: 8,
+                background: system === "NES" ? "rgba(255,68,68,0.15)" : "rgba(68,255,136,0.12)",
+                border: `1px solid ${sysAccent}44`,
+                color: sysAccent, fontSize: 11, fontWeight: 800,
+                fontFamily: "monospace", letterSpacing: "0.1em",
+              }}>{system}</div>
+              <p style={{ color: "#252525", fontSize: 9, fontFamily: "monospace",
+                lineHeight: 1.7, wordBreak: "break-all" }}>{romName}</p>
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #181818" }}>
+                {(system === "NES"
+                  ? [["256×240", ""], ["60 fps", ""], ["Ricoh 2A03", ""]]
+                  : [["160×144", ""], ["59.7 fps", ""], ["Sharp LR35902", ""]]
+                ).map(([val]) => (
+                  <div key={val} style={{ color: "#222", fontSize: 9, fontFamily: "monospace", marginBottom: 2 }}>
+                    {val}
+                  </div>
+                ))}
+              </div>
+            </>
           ) : (
-            <span className="text-gray-600 text-[10px]">No ROM loaded</span>
-          )}
-          {romName && (
-            <p className="text-gray-500 text-[10px] font-mono break-all leading-relaxed">
-              {romName}
-            </p>
-          )}
-          {system && (
-            <p className="text-gray-700 text-[10px] leading-relaxed mt-1">
-              {system === "NES"
-                ? "256×240 · 60 fps\nRicoh 2A03"
-                : "160×144 · 60 fps\nSharp LR35902"}
-            </p>
+            <span style={{ color: "#1f1f1f", fontSize: 9, fontFamily: "monospace" }}>No ROM loaded</span>
           )}
         </div>
 
         {/* Save slots */}
-        <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3 flex flex-col gap-2">
-          <p className="text-gray-500 text-[10px] uppercase tracking-widest">Save States</p>
+        <div style={{
+          borderRadius: 8, padding: "10px 12px",
+          background: "rgba(10,10,10,0.6)",
+          border: "1px solid #1a1a1a",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+        }}>
+          {panelHeader("Save States")}
           {([0, 1, 2] as const).map((slot) => (
-            <div key={slot} className="flex items-center justify-between">
-              <span className="text-gray-600 text-[10px] font-mono">Slot {slot + 1}</span>
-              <div className="flex gap-1">
+            <div key={slot} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: slot < 2 ? 7 : 0 }}>
+              <span style={{ color: "#252525", fontSize: 9, fontFamily: "monospace" }}>
+                {["①","②","③"][slot]}
+              </span>
+              <div style={{ display: "flex", gap: 4 }}>
                 <button
                   onClick={() => handleSave(slot)}
                   disabled={!romName}
+                  style={{
+                    padding: "2px 7px", borderRadius: 4, fontSize: 9, fontFamily: "monospace",
+                    color: romName ? "#22c55e" : "#1a1a1a",
+                    background: "rgba(20,50,20,0.4)", border: "1px solid #1a3a1a",
+                    cursor: romName ? "pointer" : "not-allowed",
+                    transition: "all 0.15s",
+                  }}
                   title={`Save slot ${slot + 1}`}
-                  className="px-2 py-0.5 rounded border border-green-900 bg-green-950/50
-                    hover:bg-green-900/60 text-green-400 text-[10px] font-mono
-                    disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
                 >SAV</button>
                 <button
                   onClick={() => handleLoad(slot, saveSlots)}
                   disabled={saveSlots[slot] === null}
+                  style={{
+                    padding: "2px 7px", borderRadius: 4, fontSize: 9, fontFamily: "monospace",
+                    color: saveSlots[slot] ? "#3b82f6" : "#1a1a1a",
+                    background: "rgba(10,20,50,0.4)", border: "1px solid #1a1a3a",
+                    cursor: saveSlots[slot] ? "pointer" : "not-allowed",
+                    transition: "all 0.15s",
+                  }}
                   title={`Load slot ${slot + 1}`}
-                  className="px-2 py-0.5 rounded border border-blue-900 bg-blue-950/50
-                    hover:bg-blue-900/60 text-blue-400 text-[10px] font-mono
-                    disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
-                >
-                  {saveSlots[slot] ? "LOAD" : "----"}
-                </button>
+                >{saveSlots[slot] ? "LOAD" : "----"}</button>
               </div>
             </div>
           ))}
-        </div>
-
-        {/* Status */}
-        <div className="flex items-center gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full ${running ? "bg-green-500 animate-pulse" : "bg-gray-700"}`} />
-          <span className="text-gray-600 text-[10px]">{running ? "Running" : "Idle"}</span>
         </div>
       </aside>
 
