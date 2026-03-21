@@ -1,4 +1,6 @@
 /// Memory Management Unit / Bus for the Game Boy DMG.
+
+use crate::save_state::*;
 ///
 /// Memory map:
 ///   0x0000–0x7FFF  ROM (cartridge, banked for MBC1)
@@ -390,5 +392,69 @@ impl Mmu {
     /// Advance APU.
     pub fn step_apu(&mut self, cycles: u32) {
         self.apu.step(cycles);
+    }
+
+    // -----------------------------------------------------------------------
+    // Save / Load state (does NOT include ROM data)
+    // -----------------------------------------------------------------------
+    pub fn save(&self, buf: &mut Vec<u8>) {
+        // RAM regions
+        write_slice(buf, &self.work_ram);
+        write_slice(buf, &self.high_ram);
+        // Variable-size external RAM
+        write_bytes(buf, &self.ext_ram);
+        // Interrupt registers
+        write_u8(buf, self.interrupt_flag);
+        write_u8(buf, self.interrupt_enable);
+        // Joypad
+        write_u8(buf, self.joypad_select);
+        write_u8(buf, self.joypad_action);
+        write_u8(buf, self.joypad_direction);
+        // MBC state (0 = RomOnly, 1 = Mbc1)
+        write_u8(buf, match self.mbc_type { MbcType::RomOnly => 0, MbcType::Mbc1 => 1 });
+        write_u8(buf, self.rom_bank);
+        write_u8(buf, self.ram_bank);
+        write_bool(buf, self.ram_enabled);
+        write_bool(buf, self.mbc1_mode);
+        // DMA state
+        write_bool(buf, self.dma_active);
+        write_u8(buf, self.dma_source);
+        write_u8(buf, self.dma_index);
+        write_u32(buf, self.dma_cycles);
+        // Serial
+        write_u8(buf, self.serial_data);
+        write_u8(buf, self.serial_control);
+        // Sub-components
+        self.timer.save(buf);
+        self.ppu.save(buf);
+        self.apu.save(buf);
+    }
+
+    pub fn load(&mut self, data: &[u8], off: &mut usize) {
+        self.work_ram.copy_from_slice(read_slice(data, off, 0x2000));
+        self.high_ram.copy_from_slice(read_slice(data, off, 0x7F));
+        self.ext_ram = read_bytes(data, off);
+        self.interrupt_flag   = read_u8(data, off);
+        self.interrupt_enable = read_u8(data, off);
+        self.joypad_select    = read_u8(data, off);
+        self.joypad_action    = read_u8(data, off);
+        self.joypad_direction = read_u8(data, off);
+        self.mbc_type = match read_u8(data, off) {
+            1 => MbcType::Mbc1,
+            _ => MbcType::RomOnly,
+        };
+        self.rom_bank    = read_u8(data, off);
+        self.ram_bank    = read_u8(data, off);
+        self.ram_enabled = read_bool(data, off);
+        self.mbc1_mode   = read_bool(data, off);
+        self.dma_active  = read_bool(data, off);
+        self.dma_source  = read_u8(data, off);
+        self.dma_index   = read_u8(data, off);
+        self.dma_cycles  = read_u32(data, off);
+        self.serial_data    = read_u8(data, off);
+        self.serial_control = read_u8(data, off);
+        self.timer.load(data, off);
+        self.ppu.load(data, off);
+        self.apu.load(data, off);
     }
 }

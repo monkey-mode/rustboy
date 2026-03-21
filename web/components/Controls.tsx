@@ -2,7 +2,6 @@
 
 import { useEffect, useCallback } from "react";
 
-// Button indices (match Rust set_joypad signature)
 export const BUTTON = {
   RIGHT:  0,
   LEFT:   1,
@@ -20,16 +19,8 @@ interface ControlsProps {
   onButton: (button: ButtonIndex, pressed: boolean) => void;
 }
 
-/**
- * On-screen D-pad + action buttons and keyboard event listeners.
- *
- * Keyboard mapping:
- *   ArrowRight → Right    ArrowLeft → Left
- *   ArrowUp    → Up       ArrowDown → Down
- *   Z          → A        X         → B
- *   Enter      → Start    Shift     → Select
- */
 export default function Controls({ onButton }: ControlsProps) {
+  // Keyboard handler
   const handleKey = useCallback(
     (e: KeyboardEvent, pressed: boolean) => {
       let button: ButtonIndex | null = null;
@@ -40,10 +31,8 @@ export default function Controls({ onButton }: ControlsProps) {
         case "ArrowDown":  case "s": case "S": button = BUTTON.DOWN;   break;
         case "z": case "Z": case "j": case "J": button = BUTTON.A;      break;
         case "x": case "X": case "k": case "K": button = BUTTON.B;      break;
-        case "i": case "I":                      button = BUTTON.SELECT; break;
-        case "l": case "L":                      button = BUTTON.START;  break;
-        case "Enter":      button = BUTTON.START;  break;
-        case "Shift":      button = BUTTON.SELECT; break;
+        case "i": case "I": case "Shift":        button = BUTTON.SELECT; break;
+        case "l": case "L": case "Enter":        button = BUTTON.START;  break;
         default: return;
       }
       e.preventDefault();
@@ -63,107 +52,68 @@ export default function Controls({ onButton }: ControlsProps) {
     };
   }, [handleKey]);
 
-  // Touch / click helpers for on-screen buttons
   const press   = (btn: ButtonIndex) => () => onButton(btn, true);
   const release = (btn: ButtonIndex) => () => onButton(btn, false);
 
-  const btnClass =
-    "select-none active:scale-95 transition-transform cursor-pointer " +
-    "bg-gray-700 hover:bg-gray-600 rounded-full font-bold text-xs text-gray-200 " +
-    "flex items-center justify-center";
+  const dBtn = (label: string, btn: ButtonIndex, extra = "") =>
+    <button
+      className={`select-none active:scale-90 transition-all duration-75 w-9 h-9
+        bg-gray-800 hover:bg-gray-700 active:bg-gray-600
+        border border-gray-600 rounded-lg flex items-center justify-center
+        text-gray-400 text-[11px] font-medium ${extra}`}
+      onPointerDown={press(btn)} onPointerUp={release(btn)} onPointerLeave={release(btn)}
+      aria-label={label}
+    >{label}</button>;
 
   return (
-    <div className="flex gap-8 items-center mt-4">
+    // Controller bar — same 480px width as the screen
+    <div
+      className="flex items-center justify-between px-4 py-3 rounded-b-xl
+        bg-gray-900/90 border-x border-b border-gray-800/60"
+      style={{ width: 480 }}
+    >
       {/* D-pad */}
-      <div className="grid grid-cols-3 grid-rows-3 gap-1 w-28 h-28">
-        {/* row 1 */}
-        <div />
-        <button
-          className={`${btnClass} w-9 h-9`}
-          onPointerDown={press(BUTTON.UP)}
-          onPointerUp={release(BUTTON.UP)}
-          onPointerLeave={release(BUTTON.UP)}
-          aria-label="Up"
-        >
-          ▲
-        </button>
-        <div />
-        {/* row 2 */}
-        <button
-          className={`${btnClass} w-9 h-9`}
-          onPointerDown={press(BUTTON.LEFT)}
-          onPointerUp={release(BUTTON.LEFT)}
-          onPointerLeave={release(BUTTON.LEFT)}
-          aria-label="Left"
-        >
-          ◀
-        </button>
-        <div className="w-9 h-9 bg-gray-800 rounded" />
-        <button
-          className={`${btnClass} w-9 h-9`}
-          onPointerDown={press(BUTTON.RIGHT)}
-          onPointerUp={release(BUTTON.RIGHT)}
-          onPointerLeave={release(BUTTON.RIGHT)}
-          aria-label="Right"
-        >
-          ▶
-        </button>
-        {/* row 3 */}
-        <div />
-        <button
-          className={`${btnClass} w-9 h-9`}
-          onPointerDown={press(BUTTON.DOWN)}
-          onPointerUp={release(BUTTON.DOWN)}
-          onPointerLeave={release(BUTTON.DOWN)}
-          aria-label="Down"
-        >
-          ▼
-        </button>
-        <div />
+      <div className="grid grid-cols-3 gap-0.5" style={{ width: 112 }}>
+        <div />{dBtn("▲", BUTTON.UP)}<div />
+        {dBtn("◀", BUTTON.LEFT)}
+        <div className="w-9 h-9 bg-gray-900 rounded-lg border border-gray-800" />
+        {dBtn("▶", BUTTON.RIGHT)}
+        <div />{dBtn("▼", BUTTON.DOWN)}<div />
       </div>
 
       {/* Select / Start */}
-      <div className="flex gap-3 flex-col items-center">
+      <div className="flex gap-3">
         <button
-          className={`${btnClass} w-14 h-6 rounded-full`}
-          onPointerDown={press(BUTTON.SELECT)}
-          onPointerUp={release(BUTTON.SELECT)}
-          onPointerLeave={release(BUTTON.SELECT)}
+          className="select-none active:scale-95 transition-all text-gray-500 hover:text-gray-300
+            text-[10px] tracking-widest uppercase px-3 py-1.5 rounded-full
+            border border-gray-700 hover:border-gray-500 bg-gray-900"
+          onPointerDown={press(BUTTON.SELECT)} onPointerUp={release(BUTTON.SELECT)} onPointerLeave={release(BUTTON.SELECT)}
           aria-label="Select"
-        >
-          SELECT
-        </button>
+        >SEL</button>
         <button
-          className={`${btnClass} w-14 h-6 rounded-full`}
-          onPointerDown={press(BUTTON.START)}
-          onPointerUp={release(BUTTON.START)}
-          onPointerLeave={release(BUTTON.START)}
+          className="select-none active:scale-95 transition-all text-gray-500 hover:text-gray-300
+            text-[10px] tracking-widest uppercase px-3 py-1.5 rounded-full
+            border border-gray-700 hover:border-gray-500 bg-gray-900"
+          onPointerDown={press(BUTTON.START)} onPointerUp={release(BUTTON.START)} onPointerLeave={release(BUTTON.START)}
           aria-label="Start"
-        >
-          START
-        </button>
+        >STA</button>
       </div>
 
       {/* A / B */}
-      <div className="flex gap-4 items-center">
+      <div className="flex items-end gap-3">
         <button
-          className={`${btnClass} w-12 h-12 bg-red-800 hover:bg-red-700`}
-          onPointerDown={press(BUTTON.B)}
-          onPointerUp={release(BUTTON.B)}
-          onPointerLeave={release(BUTTON.B)}
+          className="select-none active:scale-90 transition-all duration-75 w-10 h-10
+            rounded-full bg-orange-700 hover:bg-orange-600 font-bold text-white text-sm shadow-lg"
+          style={{ marginBottom: 8 }}
+          onPointerDown={press(BUTTON.B)} onPointerUp={release(BUTTON.B)} onPointerLeave={release(BUTTON.B)}
           aria-label="B"
-        >
-          B
-        </button>
+        >B</button>
         <button
-          className={`${btnClass} w-12 h-12 bg-red-600 hover:bg-red-500`}
-          onPointerDown={press(BUTTON.A)}
-          onPointerUp={release(BUTTON.A)}
-          onPointerLeave={release(BUTTON.A)}
+          className="select-none active:scale-90 transition-all duration-75 w-12 h-12
+            rounded-full bg-red-600 hover:bg-red-500 font-bold text-white text-sm shadow-lg"
+          onPointerDown={press(BUTTON.A)} onPointerUp={release(BUTTON.A)} onPointerLeave={release(BUTTON.A)}
           aria-label="A"
-        >
-          A
-        </button>
+        >A</button>
       </div>
     </div>
   );

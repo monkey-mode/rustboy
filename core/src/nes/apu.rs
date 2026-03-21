@@ -4,6 +4,8 @@
 /// Frame sequencer: 4-step and 5-step modes
 /// Output sample rate: 44100 Hz
 
+use crate::save_state::*;
+
 const SAMPLE_RATE: u32 = 44100;
 const CPU_CLOCK: f64 = 1_789_773.0;
 
@@ -622,5 +624,197 @@ impl NesApu {
 
     pub fn get_samples(&mut self) -> Vec<f32> {
         std::mem::take(&mut self.buffer)
+    }
+
+    // -----------------------------------------------------------------------
+    // Save / Load state
+    // -----------------------------------------------------------------------
+    pub fn save(&self, buf: &mut Vec<u8>) {
+        // Pulse 1
+        write_bool(buf, self.pulse1.enabled);
+        write_u8(buf, self.pulse1.duty);
+        write_u8(buf, self.pulse1.duty_pos);
+        write_u16(buf, self.pulse1.timer_period);
+        write_u16(buf, self.pulse1.timer);
+        write_u8(buf, self.pulse1.length);
+        write_bool(buf, self.pulse1.length_halt);
+        // Pulse 1 envelope
+        write_bool(buf, self.pulse1.envelope.start);
+        write_bool(buf, self.pulse1.envelope.loop_flag);
+        write_bool(buf, self.pulse1.envelope.constant);
+        write_u8(buf, self.pulse1.envelope.period);
+        write_u8(buf, self.pulse1.envelope.divider);
+        write_u8(buf, self.pulse1.envelope.decay);
+        // Pulse 1 sweep
+        write_bool(buf, self.pulse1.sweep.enabled);
+        write_u8(buf, self.pulse1.sweep.period);
+        write_bool(buf, self.pulse1.sweep.negate);
+        write_u8(buf, self.pulse1.sweep.shift);
+        write_bool(buf, self.pulse1.sweep.reload);
+        write_u8(buf, self.pulse1.sweep.divider);
+        write_bool(buf, self.pulse1.sweep.mute);
+
+        // Pulse 2
+        write_bool(buf, self.pulse2.enabled);
+        write_u8(buf, self.pulse2.duty);
+        write_u8(buf, self.pulse2.duty_pos);
+        write_u16(buf, self.pulse2.timer_period);
+        write_u16(buf, self.pulse2.timer);
+        write_u8(buf, self.pulse2.length);
+        write_bool(buf, self.pulse2.length_halt);
+        // Pulse 2 envelope
+        write_bool(buf, self.pulse2.envelope.start);
+        write_bool(buf, self.pulse2.envelope.loop_flag);
+        write_bool(buf, self.pulse2.envelope.constant);
+        write_u8(buf, self.pulse2.envelope.period);
+        write_u8(buf, self.pulse2.envelope.divider);
+        write_u8(buf, self.pulse2.envelope.decay);
+        // Pulse 2 sweep
+        write_bool(buf, self.pulse2.sweep.enabled);
+        write_u8(buf, self.pulse2.sweep.period);
+        write_bool(buf, self.pulse2.sweep.negate);
+        write_u8(buf, self.pulse2.sweep.shift);
+        write_bool(buf, self.pulse2.sweep.reload);
+        write_u8(buf, self.pulse2.sweep.divider);
+        write_bool(buf, self.pulse2.sweep.mute);
+
+        // Triangle
+        write_bool(buf, self.triangle.enabled);
+        write_u16(buf, self.triangle.timer_period);
+        write_u16(buf, self.triangle.timer);
+        write_u8(buf, self.triangle.seq_pos);
+        write_u8(buf, self.triangle.length);
+        write_bool(buf, self.triangle.length_halt);
+        write_u8(buf, self.triangle.linear_counter);
+        write_u8(buf, self.triangle.linear_reload);
+        write_bool(buf, self.triangle.linear_reload_flag);
+        write_bool(buf, self.triangle.control_flag);
+
+        // Noise
+        write_bool(buf, self.noise.enabled);
+        write_bool(buf, self.noise.mode);
+        write_u16(buf, self.noise.timer_period);
+        write_u16(buf, self.noise.timer);
+        write_u8(buf, self.noise.length);
+        write_bool(buf, self.noise.length_halt);
+        write_u16(buf, self.noise.lfsr);
+        // Noise envelope
+        write_bool(buf, self.noise.envelope.start);
+        write_bool(buf, self.noise.envelope.loop_flag);
+        write_bool(buf, self.noise.envelope.constant);
+        write_u8(buf, self.noise.envelope.period);
+        write_u8(buf, self.noise.envelope.divider);
+        write_u8(buf, self.noise.envelope.decay);
+
+        // DMC
+        write_bool(buf, self.dmc.enabled);
+        write_u8(buf, self.dmc.output);
+        write_bool(buf, self.dmc.irq_enabled);
+        write_bool(buf, self.dmc.loop_flag);
+        write_u8(buf, self.dmc.rate_index);
+
+        // Frame sequencer
+        write_u8(buf, self.frame_counter_mode);
+        write_bool(buf, self.frame_irq_inhibit);
+        write_bool(buf, self.frame_irq);
+        write_u32(buf, self.frame_cycles);
+        write_u32(buf, self.frame_step);
+
+        // Sampling accumulators (store as u64 bits of f64)
+        write_u64(buf, self.cycle_acc.to_bits());
+        write_u32(buf, self.cpu_cycles);
+    }
+
+    pub fn load(&mut self, data: &[u8], off: &mut usize) {
+        // Pulse 1
+        self.pulse1.enabled      = read_bool(data, off);
+        self.pulse1.duty         = read_u8(data, off);
+        self.pulse1.duty_pos     = read_u8(data, off);
+        self.pulse1.timer_period = read_u16(data, off);
+        self.pulse1.timer        = read_u16(data, off);
+        self.pulse1.length       = read_u8(data, off);
+        self.pulse1.length_halt  = read_bool(data, off);
+        self.pulse1.envelope.start      = read_bool(data, off);
+        self.pulse1.envelope.loop_flag  = read_bool(data, off);
+        self.pulse1.envelope.constant   = read_bool(data, off);
+        self.pulse1.envelope.period     = read_u8(data, off);
+        self.pulse1.envelope.divider    = read_u8(data, off);
+        self.pulse1.envelope.decay      = read_u8(data, off);
+        self.pulse1.sweep.enabled  = read_bool(data, off);
+        self.pulse1.sweep.period   = read_u8(data, off);
+        self.pulse1.sweep.negate   = read_bool(data, off);
+        self.pulse1.sweep.shift    = read_u8(data, off);
+        self.pulse1.sweep.reload   = read_bool(data, off);
+        self.pulse1.sweep.divider  = read_u8(data, off);
+        self.pulse1.sweep.mute     = read_bool(data, off);
+
+        // Pulse 2
+        self.pulse2.enabled      = read_bool(data, off);
+        self.pulse2.duty         = read_u8(data, off);
+        self.pulse2.duty_pos     = read_u8(data, off);
+        self.pulse2.timer_period = read_u16(data, off);
+        self.pulse2.timer        = read_u16(data, off);
+        self.pulse2.length       = read_u8(data, off);
+        self.pulse2.length_halt  = read_bool(data, off);
+        self.pulse2.envelope.start      = read_bool(data, off);
+        self.pulse2.envelope.loop_flag  = read_bool(data, off);
+        self.pulse2.envelope.constant   = read_bool(data, off);
+        self.pulse2.envelope.period     = read_u8(data, off);
+        self.pulse2.envelope.divider    = read_u8(data, off);
+        self.pulse2.envelope.decay      = read_u8(data, off);
+        self.pulse2.sweep.enabled  = read_bool(data, off);
+        self.pulse2.sweep.period   = read_u8(data, off);
+        self.pulse2.sweep.negate   = read_bool(data, off);
+        self.pulse2.sweep.shift    = read_u8(data, off);
+        self.pulse2.sweep.reload   = read_bool(data, off);
+        self.pulse2.sweep.divider  = read_u8(data, off);
+        self.pulse2.sweep.mute     = read_bool(data, off);
+
+        // Triangle
+        self.triangle.enabled           = read_bool(data, off);
+        self.triangle.timer_period      = read_u16(data, off);
+        self.triangle.timer             = read_u16(data, off);
+        self.triangle.seq_pos           = read_u8(data, off);
+        self.triangle.length            = read_u8(data, off);
+        self.triangle.length_halt       = read_bool(data, off);
+        self.triangle.linear_counter    = read_u8(data, off);
+        self.triangle.linear_reload     = read_u8(data, off);
+        self.triangle.linear_reload_flag = read_bool(data, off);
+        self.triangle.control_flag      = read_bool(data, off);
+
+        // Noise
+        self.noise.enabled      = read_bool(data, off);
+        self.noise.mode         = read_bool(data, off);
+        self.noise.timer_period = read_u16(data, off);
+        self.noise.timer        = read_u16(data, off);
+        self.noise.length       = read_u8(data, off);
+        self.noise.length_halt  = read_bool(data, off);
+        self.noise.lfsr         = read_u16(data, off);
+        self.noise.envelope.start      = read_bool(data, off);
+        self.noise.envelope.loop_flag  = read_bool(data, off);
+        self.noise.envelope.constant   = read_bool(data, off);
+        self.noise.envelope.period     = read_u8(data, off);
+        self.noise.envelope.divider    = read_u8(data, off);
+        self.noise.envelope.decay      = read_u8(data, off);
+
+        // DMC
+        self.dmc.enabled     = read_bool(data, off);
+        self.dmc.output      = read_u8(data, off);
+        self.dmc.irq_enabled = read_bool(data, off);
+        self.dmc.loop_flag   = read_bool(data, off);
+        self.dmc.rate_index  = read_u8(data, off);
+
+        // Frame sequencer
+        self.frame_counter_mode = read_u8(data, off);
+        self.frame_irq_inhibit  = read_bool(data, off);
+        self.frame_irq          = read_bool(data, off);
+        self.frame_cycles       = read_u32(data, off);
+        self.frame_step         = read_u32(data, off);
+
+        // Sampling accumulators
+        self.cycle_acc  = f64::from_bits(read_u64(data, off));
+        self.cpu_cycles = read_u32(data, off);
+        // Clear audio buffer on state load
+        self.buffer.clear();
     }
 }

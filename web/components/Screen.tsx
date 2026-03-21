@@ -8,7 +8,10 @@ interface ScreenProps {
   height: number;
 }
 
-const SCALE = 3;
+// GB  160×144 → 3.0× = 480×432 (exact integer scale)
+// NES 256×240 → 1.875× = 480×432  (same physical size, letterbox-free)
+const DISPLAY_W = 480;
+const DISPLAY_H = 432;
 
 export default function Screen({ frameBuffer, width, height }: ScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -16,28 +19,59 @@ export default function Screen({ frameBuffer, width, height }: ScreenProps) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !frameBuffer) return;
-
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    // Draw the game frame at native resolution into an offscreen buffer,
+    // then scale it up to fill the display canvas.
     const imageData = ctx.createImageData(width, height);
     imageData.data.set(frameBuffer);
-    ctx.putImageData(imageData, 0, 0);
+
+    const offscreen = new OffscreenCanvas(width, height);
+    const offCtx = offscreen.getContext("2d")!;
+    offCtx.putImageData(imageData, 0, 0);
+
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(offscreen, 0, 0, DISPLAY_W, DISPLAY_H);
   }, [frameBuffer, width, height]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={width}
-      height={height}
+    <div
+      className="relative rounded-xl overflow-hidden ring-1 ring-green-900/60"
       style={{
-        width: width * SCALE,
-        height: height * SCALE,
-        imageRendering: "pixelated",
-        display: "block",
+        width: DISPLAY_W,
+        height: DISPLAY_H,
+        boxShadow: "0 0 60px rgba(74,222,128,0.08), 0 0 0 1px rgba(74,222,128,0.1)",
+        background: "#000",
       }}
-      className="border-4 border-green-700 rounded"
-      aria-label="Emulator screen"
-    />
+    >
+      {/* Scanline overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none z-10"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0,0,0,0.18) 1px, rgba(0,0,0,0.18) 2px)",
+          mixBlendMode: "multiply",
+        }}
+      />
+      <canvas
+        ref={canvasRef}
+        width={DISPLAY_W}
+        height={DISPLAY_H}
+        style={{ imageRendering: "pixelated", display: "block" }}
+        aria-label="Emulator screen"
+      />
+      {!frameBuffer && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-gray-700">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="2" y="6" width="20" height="14" rx="2" />
+            <path d="M8 6V4M16 6V4" />
+            <circle cx="8" cy="13" r="1" fill="currentColor" />
+            <circle cx="16" cy="13" r="1" fill="currentColor" />
+          </svg>
+          <span className="text-xs tracking-widest uppercase">Load a ROM to play</span>
+        </div>
+      )}
+    </div>
   );
 }

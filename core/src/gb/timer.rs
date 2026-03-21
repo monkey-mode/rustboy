@@ -1,4 +1,6 @@
 /// Timer registers and logic for the Game Boy DMG.
+
+use crate::save_state::*;
 ///
 /// DIV  0xFF04 – Divider register (upper 8 bits of internal 16-bit counter)
 /// TIMA 0xFF05 – Timer counter
@@ -55,6 +57,25 @@ impl Timer {
             3 => 256,
             _ => unreachable!(),
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Save / Load state
+    // -----------------------------------------------------------------------
+    pub fn save(&self, buf: &mut Vec<u8>) {
+        write_u16(buf, self.internal_counter);
+        write_u8(buf, self.tima);
+        write_u8(buf, self.tma);
+        write_u8(buf, self.tac);
+        write_u32(buf, self.tima_cycles);
+    }
+
+    pub fn load(&mut self, data: &[u8], off: &mut usize) {
+        self.internal_counter = read_u16(data, off);
+        self.tima = read_u8(data, off);
+        self.tma = read_u8(data, off);
+        self.tac = read_u8(data, off);
+        self.tima_cycles = read_u32(data, off);
     }
 
     /// Advance the timer by `cycles` CPU clock ticks.

@@ -6,6 +6,7 @@
 
 mod gb;
 mod nes;
+mod save_state;
 
 use wasm_bindgen::prelude::*;
 
@@ -80,6 +81,22 @@ impl Emulator {
         match &mut self.inner {
             SystemEmulator::Gb(e) => e.get_audio_samples(),
             SystemEmulator::Nes(e) => e.get_audio_samples(),
+        }
+    }
+
+    /// Snapshot the full emulator state into a byte vector.
+    pub fn save_state(&self) -> Vec<u8> {
+        match &self.inner {
+            SystemEmulator::Gb(e) => e.save_state(),
+            SystemEmulator::Nes(e) => e.save_state(),
+        }
+    }
+
+    /// Restore the emulator state from a previously saved byte vector.
+    pub fn load_state(&mut self, data: &[u8]) {
+        match &mut self.inner {
+            SystemEmulator::Gb(e) => e.load_state(data),
+            SystemEmulator::Nes(e) => e.load_state(data),
         }
     }
 }

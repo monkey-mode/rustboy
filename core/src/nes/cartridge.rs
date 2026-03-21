@@ -1,5 +1,7 @@
 /// NES cartridge / iNES format parser and mapper support.
 
+use crate::save_state::*;
+
 // ---------------------------------------------------------------------------
 // Mirroring
 // ---------------------------------------------------------------------------
@@ -21,6 +23,10 @@ pub trait Mapper {
     fn read_chr(&self, addr: u16) -> u8;
     fn write_chr(&mut self, addr: u16, val: u8);
     fn mirroring(&self) -> Mirroring;
+    /// Save mapper banking/RAM state (NOT ROM data).
+    fn save_mapper(&self, buf: &mut Vec<u8>);
+    /// Restore mapper banking/RAM state.
+    fn load_mapper(&mut self, data: &[u8], off: &mut usize);
 }
 
 // ---------------------------------------------------------------------------
@@ -118,6 +124,24 @@ impl Mapper for Mapper0 {
 
     fn mirroring(&self) -> Mirroring {
         self.mirroring
+    }
+
+    fn save_mapper(&self, buf: &mut Vec<u8>) {
+        // Mapper type tag
+        write_u8(buf, 0);
+        // CHR RAM (if present)
+        write_bool(buf, self.chr_is_ram);
+        if self.chr_is_ram {
+            write_bytes(buf, &self.chr);
+        }
+    }
+
+    fn load_mapper(&mut self, data: &[u8], off: &mut usize) {
+        let _tag = read_u8(data, off);
+        let chr_is_ram = read_bool(data, off);
+        if chr_is_ram {
+            self.chr = read_bytes(data, off);
+        }
     }
 }
 
@@ -267,6 +291,34 @@ impl Mapper for Mapper1 {
             _ => self.base_mirroring,
         }
     }
+
+    fn save_mapper(&self, buf: &mut Vec<u8>) {
+        write_u8(buf, 1); // mapper tag
+        write_u8(buf, self.shift);
+        write_u8(buf, self.shift_count);
+        write_u8(buf, self.control);
+        write_u8(buf, self.chr_bank0);
+        write_u8(buf, self.chr_bank1);
+        write_u8(buf, self.prg_bank);
+        write_bool(buf, self.chr_is_ram);
+        if self.chr_is_ram {
+            write_bytes(buf, &self.chr);
+        }
+    }
+
+    fn load_mapper(&mut self, data: &[u8], off: &mut usize) {
+        let _tag = read_u8(data, off);
+        self.shift       = read_u8(data, off);
+        self.shift_count = read_u8(data, off);
+        self.control     = read_u8(data, off);
+        self.chr_bank0   = read_u8(data, off);
+        self.chr_bank1   = read_u8(data, off);
+        self.prg_bank    = read_u8(data, off);
+        let chr_is_ram = read_bool(data, off);
+        if chr_is_ram {
+            self.chr = read_bytes(data, off);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -322,6 +374,24 @@ impl Mapper for Mapper2 {
     fn mirroring(&self) -> Mirroring {
         self.mirroring
     }
+
+    fn save_mapper(&self, buf: &mut Vec<u8>) {
+        write_u8(buf, 2); // mapper tag
+        write_u32(buf, self.prg_bank as u32);
+        write_bool(buf, self.chr_is_ram);
+        if self.chr_is_ram {
+            write_bytes(buf, &self.chr);
+        }
+    }
+
+    fn load_mapper(&mut self, data: &[u8], off: &mut usize) {
+        let _tag = read_u8(data, off);
+        self.prg_bank = read_u32(data, off) as usize;
+        let chr_is_ram = read_bool(data, off);
+        if chr_is_ram {
+            self.chr = read_bytes(data, off);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -374,5 +444,23 @@ impl Mapper for Mapper3 {
 
     fn mirroring(&self) -> Mirroring {
         self.mirroring
+    }
+
+    fn save_mapper(&self, buf: &mut Vec<u8>) {
+        write_u8(buf, 3); // mapper tag
+        write_u32(buf, self.chr_bank as u32);
+        write_bool(buf, self.chr_is_ram);
+        if self.chr_is_ram {
+            write_bytes(buf, &self.chr);
+        }
+    }
+
+    fn load_mapper(&mut self, data: &[u8], off: &mut usize) {
+        let _tag = read_u8(data, off);
+        self.chr_bank = read_u32(data, off) as usize;
+        let chr_is_ram = read_bool(data, off);
+        if chr_is_ram {
+            self.chr = read_bytes(data, off);
+        }
     }
 }

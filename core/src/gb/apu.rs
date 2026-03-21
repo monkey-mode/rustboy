@@ -1,4 +1,6 @@
 /// Audio Processing Unit for the Game Boy DMG.
+
+use crate::save_state::*;
 ///
 /// Four channels:
 ///   Channel 1 – Square wave with frequency sweep
@@ -674,5 +676,152 @@ impl Apu {
     /// Drain and return accumulated audio samples.
     pub fn get_samples(&mut self) -> Vec<f32> {
         std::mem::take(&mut self.buffer)
+    }
+
+    // -----------------------------------------------------------------------
+    // Save / Load state
+    // -----------------------------------------------------------------------
+    pub fn save(&self, buf: &mut Vec<u8>) {
+        // Channel 1
+        write_u8(buf, self.ch1.sweep_period);
+        write_bool(buf, self.ch1.sweep_negate);
+        write_u8(buf, self.ch1.sweep_shift);
+        write_u8(buf, self.ch1.duty);
+        write_u8(buf, self.ch1.length_load);
+        write_u8(buf, self.ch1.env_initial);
+        write_bool(buf, self.ch1.env_add);
+        write_u8(buf, self.ch1.env_period);
+        write_u16(buf, self.ch1.frequency);
+        write_bool(buf, self.ch1.length_enable);
+        write_bool(buf, self.ch1.enabled);
+        write_u8(buf, self.ch1.duty_pos);
+        write_u16(buf, self.ch1.freq_timer);
+        write_u8(buf, self.ch1.length_counter);
+        write_u8(buf, self.ch1.env_volume);
+        write_u8(buf, self.ch1.env_timer);
+        write_u8(buf, self.ch1.sweep_timer);
+        write_u16(buf, self.ch1.sweep_freq);
+        // Channel 2
+        write_u8(buf, self.ch2.duty);
+        write_u8(buf, self.ch2.length_load);
+        write_u8(buf, self.ch2.env_initial);
+        write_bool(buf, self.ch2.env_add);
+        write_u8(buf, self.ch2.env_period);
+        write_u16(buf, self.ch2.frequency);
+        write_bool(buf, self.ch2.length_enable);
+        write_bool(buf, self.ch2.enabled);
+        write_u8(buf, self.ch2.duty_pos);
+        write_u16(buf, self.ch2.freq_timer);
+        write_u8(buf, self.ch2.length_counter);
+        write_u8(buf, self.ch2.env_volume);
+        write_u8(buf, self.ch2.env_timer);
+        // Channel 3
+        write_bool(buf, self.ch3.dac_power);
+        write_u8(buf, self.ch3.length_load);
+        write_u8(buf, self.ch3.volume_code);
+        write_u16(buf, self.ch3.frequency);
+        write_bool(buf, self.ch3.length_enable);
+        write_slice(buf, &self.ch3.wave_ram);
+        write_bool(buf, self.ch3.enabled);
+        write_u8(buf, self.ch3.position);
+        write_u16(buf, self.ch3.freq_timer);
+        write_u16(buf, self.ch3.length_counter);
+        // Channel 4
+        write_u8(buf, self.ch4.length_load);
+        write_u8(buf, self.ch4.env_initial);
+        write_bool(buf, self.ch4.env_add);
+        write_u8(buf, self.ch4.env_period);
+        write_u8(buf, self.ch4.clock_shift);
+        write_bool(buf, self.ch4.lfsr_width);
+        write_u8(buf, self.ch4.clock_divider);
+        write_bool(buf, self.ch4.length_enable);
+        write_bool(buf, self.ch4.enabled);
+        write_u16(buf, self.ch4.lfsr);
+        write_u32(buf, self.ch4.freq_timer);
+        write_u8(buf, self.ch4.length_counter);
+        write_u8(buf, self.ch4.env_volume);
+        write_u8(buf, self.ch4.env_timer);
+        // Master
+        write_u8(buf, self.nr50);
+        write_u8(buf, self.nr51);
+        write_u8(buf, self.nr52);
+        // Frame sequencer
+        write_u32(buf, self.frame_seq_cycles);
+        write_u8(buf, self.frame_seq_step);
+        // Cycle accumulator (do NOT save audio buffer – will be regenerated)
+        write_u32(buf, self.cycle_acc);
+    }
+
+    pub fn load(&mut self, data: &[u8], off: &mut usize) {
+        // Channel 1
+        self.ch1.sweep_period = read_u8(data, off);
+        self.ch1.sweep_negate = read_bool(data, off);
+        self.ch1.sweep_shift = read_u8(data, off);
+        self.ch1.duty = read_u8(data, off);
+        self.ch1.length_load = read_u8(data, off);
+        self.ch1.env_initial = read_u8(data, off);
+        self.ch1.env_add = read_bool(data, off);
+        self.ch1.env_period = read_u8(data, off);
+        self.ch1.frequency = read_u16(data, off);
+        self.ch1.length_enable = read_bool(data, off);
+        self.ch1.enabled = read_bool(data, off);
+        self.ch1.duty_pos = read_u8(data, off);
+        self.ch1.freq_timer = read_u16(data, off);
+        self.ch1.length_counter = read_u8(data, off);
+        self.ch1.env_volume = read_u8(data, off);
+        self.ch1.env_timer = read_u8(data, off);
+        self.ch1.sweep_timer = read_u8(data, off);
+        self.ch1.sweep_freq = read_u16(data, off);
+        // Channel 2
+        self.ch2.duty = read_u8(data, off);
+        self.ch2.length_load = read_u8(data, off);
+        self.ch2.env_initial = read_u8(data, off);
+        self.ch2.env_add = read_bool(data, off);
+        self.ch2.env_period = read_u8(data, off);
+        self.ch2.frequency = read_u16(data, off);
+        self.ch2.length_enable = read_bool(data, off);
+        self.ch2.enabled = read_bool(data, off);
+        self.ch2.duty_pos = read_u8(data, off);
+        self.ch2.freq_timer = read_u16(data, off);
+        self.ch2.length_counter = read_u8(data, off);
+        self.ch2.env_volume = read_u8(data, off);
+        self.ch2.env_timer = read_u8(data, off);
+        // Channel 3
+        self.ch3.dac_power = read_bool(data, off);
+        self.ch3.length_load = read_u8(data, off);
+        self.ch3.volume_code = read_u8(data, off);
+        self.ch3.frequency = read_u16(data, off);
+        self.ch3.length_enable = read_bool(data, off);
+        self.ch3.wave_ram.copy_from_slice(read_slice(data, off, 16));
+        self.ch3.enabled = read_bool(data, off);
+        self.ch3.position = read_u8(data, off);
+        self.ch3.freq_timer = read_u16(data, off);
+        self.ch3.length_counter = read_u16(data, off);
+        // Channel 4
+        self.ch4.length_load = read_u8(data, off);
+        self.ch4.env_initial = read_u8(data, off);
+        self.ch4.env_add = read_bool(data, off);
+        self.ch4.env_period = read_u8(data, off);
+        self.ch4.clock_shift = read_u8(data, off);
+        self.ch4.lfsr_width = read_bool(data, off);
+        self.ch4.clock_divider = read_u8(data, off);
+        self.ch4.length_enable = read_bool(data, off);
+        self.ch4.enabled = read_bool(data, off);
+        self.ch4.lfsr = read_u16(data, off);
+        self.ch4.freq_timer = read_u32(data, off);
+        self.ch4.length_counter = read_u8(data, off);
+        self.ch4.env_volume = read_u8(data, off);
+        self.ch4.env_timer = read_u8(data, off);
+        // Master
+        self.nr50 = read_u8(data, off);
+        self.nr51 = read_u8(data, off);
+        self.nr52 = read_u8(data, off);
+        // Frame sequencer
+        self.frame_seq_cycles = read_u32(data, off);
+        self.frame_seq_step = read_u8(data, off);
+        // Cycle accumulator
+        self.cycle_acc = read_u32(data, off);
+        // Clear audio buffer on state load
+        self.buffer.clear();
     }
 }

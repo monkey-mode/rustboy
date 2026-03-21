@@ -11,6 +11,8 @@ export interface WasmEmulator {
   frame_height(): number;
   set_joypad(button: number, pressed: boolean): void;
   audio_buffer(): Float32Array;
+  save_state(): Uint8Array;
+  load_state(data: Uint8Array): void;
   free(): void;
 }
 

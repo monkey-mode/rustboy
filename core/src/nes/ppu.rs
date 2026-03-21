@@ -4,6 +4,7 @@
 /// PPU runs at 3× CPU clock → 341 cycles/scanline × 262 scanlines = 89342 PPU cycles per frame.
 
 use super::cartridge::{Mapper, Mirroring};
+use crate::save_state::*;
 
 pub const SCREEN_W: usize = 256;
 pub const SCREEN_H: usize = 240;
@@ -634,5 +635,90 @@ impl NesPpu {
 
         // Suppress unused warning for cartridge param
         let _ = cartridge;
+    }
+
+    // -----------------------------------------------------------------------
+    // Save / Load state
+    // -----------------------------------------------------------------------
+    pub fn save(&self, buf: &mut Vec<u8>) {
+        // Registers
+        write_u8(buf, self.ctrl);
+        write_u8(buf, self.mask);
+        write_u8(buf, self.status);
+        write_u8(buf, self.oam_addr);
+        // Loopy
+        write_u16(buf, self.v);
+        write_u16(buf, self.t);
+        write_u8(buf, self.fine_x);
+        write_bool(buf, self.w);
+        // Internal VRAM
+        write_slice(buf, &self.nametable_ram);
+        write_slice(buf, &self.palette_ram);
+        write_slice(buf, &self.oam);
+        // Data buffer & timing
+        write_u8(buf, self.data_buffer);
+        write_u16(buf, self.cycle);
+        write_u16(buf, self.scanline as u16); // i16 stored as u16 (two's complement)
+        write_u64(buf, self.frame);
+        // BG shift registers
+        write_u16(buf, self.bg_pattern_lo);
+        write_u16(buf, self.bg_pattern_hi);
+        write_u16(buf, self.bg_attrib_lo);
+        write_u16(buf, self.bg_attrib_hi);
+        // BG fetch bytes
+        write_u8(buf, self.nt_byte);
+        write_u8(buf, self.at_byte);
+        write_u8(buf, self.bg_lo);
+        write_u8(buf, self.bg_hi);
+        // Sprite state
+        write_u32(buf, self.sprite_count as u32);
+        write_slice(buf, &self.sprite_patterns_lo);
+        write_slice(buf, &self.sprite_patterns_hi);
+        write_slice(buf, &self.sprite_x);
+        write_slice(buf, &self.sprite_attrs);
+        write_bool(buf, self.sprite0_hit_possible);
+        write_bool(buf, self.sprite0_being_rendered);
+        // Misc flags
+        write_bool(buf, self.frame_ready);
+        write_bool(buf, self.nmi_requested);
+        // Frame buffer (256*240*4)
+        write_slice(buf, &self.frame_buffer);
+    }
+
+    pub fn load(&mut self, data: &[u8], off: &mut usize) {
+        self.ctrl     = read_u8(data, off);
+        self.mask     = read_u8(data, off);
+        self.status   = read_u8(data, off);
+        self.oam_addr = read_u8(data, off);
+        self.v        = read_u16(data, off);
+        self.t        = read_u16(data, off);
+        self.fine_x   = read_u8(data, off);
+        self.w        = read_bool(data, off);
+        self.nametable_ram.copy_from_slice(read_slice(data, off, 2048));
+        self.palette_ram.copy_from_slice(read_slice(data, off, 32));
+        self.oam.copy_from_slice(read_slice(data, off, 256));
+        self.data_buffer = read_u8(data, off);
+        self.cycle       = read_u16(data, off);
+        self.scanline    = read_u16(data, off) as i16;
+        self.frame       = read_u64(data, off);
+        self.bg_pattern_lo = read_u16(data, off);
+        self.bg_pattern_hi = read_u16(data, off);
+        self.bg_attrib_lo  = read_u16(data, off);
+        self.bg_attrib_hi  = read_u16(data, off);
+        self.nt_byte = read_u8(data, off);
+        self.at_byte = read_u8(data, off);
+        self.bg_lo   = read_u8(data, off);
+        self.bg_hi   = read_u8(data, off);
+        self.sprite_count = read_u32(data, off) as usize;
+        self.sprite_patterns_lo.copy_from_slice(read_slice(data, off, 8));
+        self.sprite_patterns_hi.copy_from_slice(read_slice(data, off, 8));
+        self.sprite_x.copy_from_slice(read_slice(data, off, 8));
+        self.sprite_attrs.copy_from_slice(read_slice(data, off, 8));
+        self.sprite0_hit_possible    = read_bool(data, off);
+        self.sprite0_being_rendered  = read_bool(data, off);
+        self.frame_ready    = read_bool(data, off);
+        self.nmi_requested  = read_bool(data, off);
+        let fb_len = SCREEN_W * SCREEN_H * 4;
+        self.frame_buffer.copy_from_slice(read_slice(data, off, fb_len));
     }
 }

@@ -1,4 +1,6 @@
 /// Pixel Processing Unit for the Game Boy DMG.
+
+use crate::save_state::*;
 ///
 /// Modes and timing per scanline (456 cycles total):
 ///   OAM Scan  (mode 2):  80 cycles
@@ -389,5 +391,64 @@ impl Ppu {
     /// Map a 2-bit pixel ID through a palette register into a shade index.
     fn apply_palette(&self, pixel_id: u8, palette: u8) -> u8 {
         (palette >> (pixel_id * 2)) & 0x03
+    }
+
+    // -----------------------------------------------------------------------
+    // Save / Load state
+    // -----------------------------------------------------------------------
+    pub fn save(&self, buf: &mut Vec<u8>) {
+        // Registers
+        write_u8(buf, self.lcdc);
+        write_u8(buf, self.stat);
+        write_u8(buf, self.scy);
+        write_u8(buf, self.scx);
+        write_u8(buf, self.ly);
+        write_u8(buf, self.lyc);
+        write_u8(buf, self.bgp);
+        write_u8(buf, self.obp0);
+        write_u8(buf, self.obp1);
+        write_u8(buf, self.wy);
+        write_u8(buf, self.wx);
+        // Mode (store as u8)
+        write_u8(buf, self.mode as u8);
+        write_u32(buf, self.cycle_counter);
+        // IRQ flags
+        write_bool(buf, self.vblank_irq);
+        write_bool(buf, self.stat_irq);
+        write_bool(buf, self.frame_ready);
+        write_u8(buf, self.window_line_counter);
+        // VRAM (8192 bytes), OAM (160 bytes), frame_buffer (160*144*4 bytes)
+        write_slice(buf, &self.vram);
+        write_slice(buf, &self.oam);
+        write_slice(buf, &self.frame_buffer);
+    }
+
+    pub fn load(&mut self, data: &[u8], off: &mut usize) {
+        self.lcdc = read_u8(data, off);
+        self.stat = read_u8(data, off);
+        self.scy  = read_u8(data, off);
+        self.scx  = read_u8(data, off);
+        self.ly   = read_u8(data, off);
+        self.lyc  = read_u8(data, off);
+        self.bgp  = read_u8(data, off);
+        self.obp0 = read_u8(data, off);
+        self.obp1 = read_u8(data, off);
+        self.wy   = read_u8(data, off);
+        self.wx   = read_u8(data, off);
+        self.mode = match read_u8(data, off) {
+            0 => PpuMode::HBlank,
+            1 => PpuMode::VBlank,
+            2 => PpuMode::OamScan,
+            _ => PpuMode::Drawing,
+        };
+        self.cycle_counter = read_u32(data, off);
+        self.vblank_irq = read_bool(data, off);
+        self.stat_irq   = read_bool(data, off);
+        self.frame_ready = read_bool(data, off);
+        self.window_line_counter = read_u8(data, off);
+        self.vram.copy_from_slice(read_slice(data, off, 0x2000));
+        self.oam.copy_from_slice(read_slice(data, off, 0xA0));
+        let fb_len = SCREEN_W * SCREEN_H * 4;
+        self.frame_buffer.copy_from_slice(read_slice(data, off, fb_len));
     }
 }

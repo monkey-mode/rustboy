@@ -3,6 +3,7 @@
 /// All 56 official opcodes, all addressing modes.
 
 use super::bus::NesBus;
+use crate::save_state::*;
 
 // ---------------------------------------------------------------------------
 // Flag bits
@@ -543,5 +544,28 @@ impl NesCpu {
         let result = (val >> 1) | (old_c << 7);
         bus.write(addr, result);
         result
+    }
+
+    // -----------------------------------------------------------------------
+    // Save / Load state
+    // -----------------------------------------------------------------------
+    pub fn save(&self, buf: &mut Vec<u8>) {
+        write_u8(buf, self.a);
+        write_u8(buf, self.x);
+        write_u8(buf, self.y);
+        write_u8(buf, self.p);
+        write_u8(buf, self.sp);
+        write_u16(buf, self.pc);
+        write_u32(buf, self.cycles);
+    }
+
+    pub fn load(&mut self, data: &[u8], off: &mut usize) {
+        self.a      = read_u8(data, off);
+        self.x      = read_u8(data, off);
+        self.y      = read_u8(data, off);
+        self.p      = read_u8(data, off);
+        self.sp     = read_u8(data, off);
+        self.pc     = read_u16(data, off);
+        self.cycles = read_u32(data, off);
     }
 }

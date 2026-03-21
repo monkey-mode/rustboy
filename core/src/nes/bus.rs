@@ -1,4 +1,6 @@
 /// NES memory bus.
+
+use crate::save_state::*;
 ///
 /// CPU address space:
 ///   0x0000-0x07FF: internal RAM (mirrored to 0x1FFF)
@@ -175,5 +177,39 @@ impl NesBus {
         } else {
             self.joypad1_state &= !(1 << bit);
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Save / Load state
+    // -----------------------------------------------------------------------
+    pub fn save(&self, buf: &mut Vec<u8>) {
+        write_slice(buf, &self.ram);
+        // Joypad
+        write_u8(buf, self.joypad1_state);
+        write_u8(buf, self.joypad1_shift);
+        write_bool(buf, self.joypad1_strobe);
+        write_u8(buf, self.joypad2_state);
+        write_u8(buf, self.joypad2_shift);
+        // DMA
+        write_bool(buf, self.dma_pending);
+        write_u8(buf, self.dma_page);
+        // Sub-components
+        self.ppu.save(buf);
+        self.apu.save(buf);
+        self.cartridge.save_mapper(buf);
+    }
+
+    pub fn load(&mut self, data: &[u8], off: &mut usize) {
+        self.ram.copy_from_slice(read_slice(data, off, 2048));
+        self.joypad1_state  = read_u8(data, off);
+        self.joypad1_shift  = read_u8(data, off);
+        self.joypad1_strobe = read_bool(data, off);
+        self.joypad2_state  = read_u8(data, off);
+        self.joypad2_shift  = read_u8(data, off);
+        self.dma_pending    = read_bool(data, off);
+        self.dma_page       = read_u8(data, off);
+        self.ppu.load(data, off);
+        self.apu.load(data, off);
+        self.cartridge.load_mapper(data, off);
     }
 }

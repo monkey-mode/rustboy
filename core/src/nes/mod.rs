@@ -9,6 +9,7 @@ pub mod cartridge;
 pub use bus::NesBus;
 
 use cpu::NesCpu;
+use crate::save_state::*;
 
 /// CPU cycles per NES NTSC frame: 1789773 Hz / 60.0988 fps ≈ 29780 cycles.
 const CYCLES_PER_FRAME: u32 = 29_780;
@@ -84,5 +85,33 @@ impl NesEmulator {
 
     pub fn get_audio_samples(&mut self) -> Vec<f32> {
         self.bus.apu.get_samples()
+    }
+
+    // -----------------------------------------------------------------------
+    // Save / Load state
+    // Magic header: "NESS" = [0x4E, 0x45, 0x53, 0x53], version 0x01
+    // -----------------------------------------------------------------------
+    pub fn save_state(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        // Header
+        buf.extend_from_slice(&[0x4E, 0x45, 0x53, 0x53, 0x01]);
+        // Pending interrupt flags
+        write_bool(&mut buf, self.pending_nmi);
+        write_bool(&mut buf, self.pending_irq);
+        // CPU + Bus (Bus includes PPU, APU, Cartridge)
+        self.cpu.save(&mut buf);
+        self.bus.save(&mut buf);
+        buf
+    }
+
+    pub fn load_state(&mut self, data: &[u8]) {
+        if data.len() < 5 || &data[0..4] != &[0x4E, 0x45, 0x53, 0x53] || data[4] != 0x01 {
+            return;
+        }
+        let mut off = 5usize;
+        self.pending_nmi = read_bool(data, &mut off);
+        self.pending_irq = read_bool(data, &mut off);
+        self.cpu.load(data, &mut off);
+        self.bus.load(data, &mut off);
     }
 }

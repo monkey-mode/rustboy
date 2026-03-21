@@ -9,6 +9,8 @@ pub mod timer;
 pub use cpu::Cpu;
 pub use mmu::Mmu;
 
+use crate::save_state::*;
+
 /// Cycles per frame: 4.194304 MHz / 59.7 fps ≈ 70224 cycles.
 const CYCLES_PER_FRAME: u32 = 70_224;
 
@@ -57,5 +59,32 @@ impl GbEmulator {
         self.mmu.step_timer(cycles);
         self.mmu.step_ppu(cycles);
         self.mmu.step_apu(cycles);
+    }
+
+    // -----------------------------------------------------------------------
+    // Save / Load state
+    // Magic header: "GBSS" = [0x47, 0x42, 0x53, 0x53], version 0x01
+    // -----------------------------------------------------------------------
+    pub fn save_state(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        // Header
+        buf.extend_from_slice(&[0x47, 0x42, 0x53, 0x53, 0x01]);
+        // Frame cycles
+        write_u32(&mut buf, self.cycles_this_frame);
+        // CPU + MMU (MMU includes PPU, APU, Timer)
+        self.cpu.save(&mut buf);
+        self.mmu.save(&mut buf);
+        buf
+    }
+
+    pub fn load_state(&mut self, data: &[u8]) {
+        // Validate header
+        if data.len() < 5 || &data[0..4] != &[0x47, 0x42, 0x53, 0x53] || data[4] != 0x01 {
+            return; // invalid or incompatible save state
+        }
+        let mut off = 5usize;
+        self.cycles_this_frame = read_u32(data, &mut off);
+        self.cpu.load(data, &mut off);
+        self.mmu.load(data, &mut off);
     }
 }

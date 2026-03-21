@@ -9,6 +9,7 @@
 ///   Bits 3-0 are always 0
 
 use super::mmu::Mmu;
+use crate::save_state::*;
 
 // ---------------------------------------------------------------------------
 // Flag bit positions
@@ -912,5 +913,42 @@ impl Cpu {
         let r = v >> 1;
         self.regs.set_flags(r == 0, false, false, c != 0);
         r
+    }
+
+    // -----------------------------------------------------------------------
+    // Save / Load state
+    // -----------------------------------------------------------------------
+    pub fn save(&self, buf: &mut Vec<u8>) {
+        write_u8(buf, self.regs.a);
+        write_u8(buf, self.regs.f);
+        write_u8(buf, self.regs.b);
+        write_u8(buf, self.regs.c);
+        write_u8(buf, self.regs.d);
+        write_u8(buf, self.regs.e);
+        write_u8(buf, self.regs.h);
+        write_u8(buf, self.regs.l);
+        write_u16(buf, self.regs.sp);
+        write_u16(buf, self.regs.pc);
+        write_bool(buf, self.ime);
+        write_bool(buf, self.halted);
+        write_bool(buf, self.stopped);
+        write_bool(buf, self.ime_pending);
+    }
+
+    pub fn load(&mut self, data: &[u8], off: &mut usize) {
+        self.regs.a = read_u8(data, off);
+        self.regs.f = read_u8(data, off);
+        self.regs.b = read_u8(data, off);
+        self.regs.c = read_u8(data, off);
+        self.regs.d = read_u8(data, off);
+        self.regs.e = read_u8(data, off);
+        self.regs.h = read_u8(data, off);
+        self.regs.l = read_u8(data, off);
+        self.regs.sp = read_u16(data, off);
+        self.regs.pc = read_u16(data, off);
+        self.ime = read_bool(data, off);
+        self.halted = read_bool(data, off);
+        self.stopped = read_bool(data, off);
+        self.ime_pending = read_bool(data, off);
     }
 }
