@@ -69,7 +69,7 @@ rustboy/
 │           ├── ppu.rs     # PPU — Loopy scroll, sprites, 64-color palette
 │           ├── apu.rs     # APU — Pulse×2, Triangle, Noise, DMC
 │           ├── bus.rs     # Memory bus, OAM DMA, joypad
-│           └── cartridge.rs  # iNES parser, Mapper 0/1/2/3
+│           └── cartridge.rs  # iNES parser, Mapper 0/1/2/3/4
 └── web/                   # Next.js app
     ├── app/
     ├── components/
@@ -95,6 +95,7 @@ On-screen buttons are also available for touch/mouse.
 ## Make Targets
 
 ```bash
+make run            # Build optimized WASM + start dev server (best performance)
 make dev            # Build WASM (debug) + start Next.js dev server
 make build          # Release build of WASM + Next.js
 make build-wasm     # Rust → WASM (release) only
@@ -116,7 +117,4 @@ make clean          # Remove build artifacts
 | 1 | MMC1 | Mega Man 2, Legend of Zelda |
 | 2 | UxROM | Contra, Castlevania |
 | 3 | CNROM | Excitebike |
-
-## License
-
-MIT
+| 4 | MMC3 | Contra Force, Super Mario Bros. 3, Mega Man 3-6 |
