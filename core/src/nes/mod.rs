@@ -45,9 +45,10 @@ impl NesEmulator {
                 self.bus.do_oam_dma();
                 total_cycles += 513;
                 // Step PPU for the DMA cycles
-                let (frame_ready, nmi) = self.bus.step_ppu(513);
+                let (frame_ready, nmi, irq) = self.bus.step_ppu(513);
                 self.bus.step_apu(513);
                 if nmi { self.pending_nmi = true; }
+                if irq { self.pending_irq = true; }
                 if frame_ready { /* frame done mid-DMA – rare, continue */ }
             }
 
@@ -57,10 +58,15 @@ impl NesEmulator {
                 self.cpu.nmi(&mut self.bus);
             }
 
-            // Handle IRQ
+            // Handle IRQ (dispatch takes 7 CPU cycles — step PPU/APU for them)
             if self.pending_irq {
                 self.pending_irq = false;
                 self.cpu.irq(&mut self.bus);
+                let (_, nmi2, irq2) = self.bus.step_ppu(7);
+                self.bus.step_apu(7);
+                total_cycles += 7;
+                if nmi2 { self.pending_nmi = true; }
+                if irq2 { self.pending_irq = true; }
             }
 
             // Execute one CPU instruction
@@ -68,10 +74,11 @@ impl NesEmulator {
             total_cycles += cycles;
 
             // Step PPU and APU
-            let (_, nmi) = self.bus.step_ppu(cycles);
+            let (_, nmi, irq) = self.bus.step_ppu(cycles);
             self.bus.step_apu(cycles);
 
             if nmi { self.pending_nmi = true; }
+            if irq { self.pending_irq = true; }
         }
     }
 

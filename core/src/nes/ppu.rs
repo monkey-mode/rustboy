@@ -388,6 +388,11 @@ impl NesPpu {
         if self.cycle > 340 {
             self.cycle = 0;
             self.scanline += 1;
+            // Notify mapper on each new visible scanline (0-239).
+            // This drives the MMC3 IRQ scanline counter (A12 approximation).
+            if self.scanline >= 0 && self.scanline < 240 {
+                cartridge.notify_scanline();
+            }
             if self.scanline > 261 {
                 self.scanline = 0;
                 self.frame = self.frame.wrapping_add(1);

@@ -278,12 +278,11 @@ export default function Emulator() {
         <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3 flex flex-col gap-1.5">
           <p className="text-gray-500 text-[10px] uppercase tracking-widest mb-1">Keyboard</p>
           {[
-            ["↑↓←→", "D-pad"],
             ["WASD", "D-pad"],
-            ["J / Z", "A"],
-            ["K / X", "B"],
+            ["J", "A"],
+            ["K", "B"],
             ["I", "Select"],
-            ["L / Enter", "Start"],
+            ["L", "Start"],
           ].map(([key, action]) => (
             <div key={key} className="flex justify-between items-center">
               <span className="text-gray-400 text-[10px] font-mono">{key}</span>

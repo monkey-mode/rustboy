@@ -146,10 +146,12 @@ impl NesBus {
     }
 
     /// Step PPU by cpu_cycles CPU cycles (= 3x PPU cycles each).
-    /// Returns (frame_ready, nmi_triggered).
-    pub fn step_ppu(&mut self, cpu_cycles: u32) -> (bool, bool) {
+    /// Returns (frame_ready, nmi_triggered, irq_pending).
+    pub fn step_ppu(&mut self, cpu_cycles: u32) -> (bool, bool, bool) {
         let cart = &mut *self.cartridge;
-        self.ppu.step(cpu_cycles, cart)
+        let (frame, nmi) = self.ppu.step(cpu_cycles, cart);
+        let irq = self.cartridge.irq_pending();
+        (frame, nmi, irq)
     }
 
     /// Step APU by cpu_cycles.

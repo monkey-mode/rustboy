@@ -1,4 +1,4 @@
-.PHONY: all build build-wasm build-web dev clean fmt lint cargo-check test check install help
+.PHONY: all build build-wasm build-web dev run clean fmt lint cargo-check test check install help
 
 # Directories
 CORE_DIR := core
@@ -25,6 +25,10 @@ build-web:
 
 ## Start Next.js dev server (builds WASM in dev mode first)
 dev: build-wasm-dev
+	cd $(WEB_DIR) && npm run dev
+
+## Build optimized WASM then start dev server (best performance)
+run: build-wasm
 	cd $(WEB_DIR) && npm run dev
 
 ## Install all dependencies
@@ -85,6 +89,7 @@ help:
 	@echo "  build-wasm-dev Build Rust core → WASM (debug)"
 	@echo "  build-web      Build Next.js production bundle"
 	@echo "  dev            Build WASM (debug) then start Next.js dev server"
+	@echo "  run            Build WASM (release + wasm-opt) then start dev server"
 	@echo "  install        Install npm dependencies"
 	@echo "  test           Run all tests"
 	@echo "  test-core      Run Rust unit tests"

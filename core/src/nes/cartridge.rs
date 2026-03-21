@@ -23,6 +23,10 @@ pub trait Mapper {
     fn read_chr(&self, addr: u16) -> u8;
     fn write_chr(&mut self, addr: u16, val: u8);
     fn mirroring(&self) -> Mirroring;
+    /// Called once per PPU scanline (for MMC3 IRQ counter).
+    fn notify_scanline(&mut self) {}
+    /// True if the mapper has a pending IRQ.
+    fn irq_pending(&mut self) -> bool { false }
     /// Save mapper banking/RAM state (NOT ROM data).
     fn save_mapper(&self, buf: &mut Vec<u8>);
     /// Restore mapper banking/RAM state.
@@ -73,6 +77,7 @@ pub fn parse_ines(rom: &[u8]) -> Box<dyn Mapper> {
         1 => Box::new(Mapper1::new(prg_rom, chr_data, chr_is_ram, mirroring)),
         2 => Box::new(Mapper2::new(prg_rom, chr_data, chr_is_ram, mirroring)),
         3 => Box::new(Mapper3::new(prg_rom, chr_data, chr_is_ram, mirroring)),
+        4 => Box::new(Mapper4::new(prg_rom, chr_data, chr_is_ram, mirroring)),
         _ => {
             // Fallback to mapper 0 for unknown mappers
             Box::new(Mapper0::new(prg_rom, chr_data, chr_is_ram, mirroring))
@@ -459,6 +464,247 @@ impl Mapper for Mapper3 {
         let _tag = read_u8(data, off);
         self.chr_bank = read_u32(data, off) as usize;
         let chr_is_ram = read_bool(data, off);
+        if chr_is_ram {
+            self.chr = read_bytes(data, off);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Mapper 4 – MMC3
+// ---------------------------------------------------------------------------
+pub struct Mapper4 {
+    prg_rom: Vec<u8>,
+    chr: Vec<u8>,
+    chr_is_ram: bool,
+    prg_ram: Vec<u8>,     // $6000-$7FFF, 8KB
+    mirroring: Mirroring,
+
+    // Bank select register ($8000)
+    bank_select: u8,      // bits 0-2 = reg index, bit 6 = PRG mode, bit 7 = CHR mode
+
+    // Bank registers R0-R7
+    regs: [u8; 8],
+
+    // PRG RAM protect ($A001)
+    prg_ram_enable: bool,
+    prg_ram_protect: bool,
+
+    // IRQ
+    irq_latch: u8,
+    irq_counter: u8,
+    irq_enable: bool,
+    irq_reload: bool,
+    irq_pending: bool,
+}
+
+impl Mapper4 {
+    pub fn new(prg_rom: Vec<u8>, chr: Vec<u8>, chr_is_ram: bool, mirroring: Mirroring) -> Self {
+        Mapper4 {
+            prg_rom,
+            chr,
+            chr_is_ram,
+            prg_ram: vec![0u8; 8192],
+            mirroring,
+            bank_select: 0,
+            regs: [0u8; 8],
+            prg_ram_enable: true,
+            prg_ram_protect: false,
+            irq_latch: 0,
+            irq_counter: 0,
+            irq_enable: false,
+            irq_reload: false,
+            irq_pending: false,
+        }
+    }
+
+    fn prg_bank_count(&self) -> usize {
+        self.prg_rom.len() / 8192 // 8KB units
+    }
+
+    fn chr_bank_count(&self) -> usize {
+        let n = self.chr.len() / 1024; // 1KB units
+        if n == 0 { 8 } else { n }
+    }
+
+    fn prg_addr(&self, addr: u16) -> usize {
+        let n = self.prg_bank_count();
+        let prg_mode = (self.bank_select >> 6) & 1;
+        let r6 = (self.regs[6] as usize) % n;
+        let r7 = (self.regs[7] as usize) % n;
+        match addr {
+            0x6000..=0x7FFF => return usize::MAX, // PRG RAM — handled by caller
+            0x8000..=0x9FFF => {
+                let bank = if prg_mode == 0 { r6 } else { n - 2 };
+                bank * 8192 + (addr - 0x8000) as usize
+            }
+            0xA000..=0xBFFF => r7 * 8192 + (addr - 0xA000) as usize,
+            0xC000..=0xDFFF => {
+                let bank = if prg_mode == 0 { n - 2 } else { r6 };
+                bank * 8192 + (addr - 0xC000) as usize
+            }
+            0xE000..=0xFFFF => (n - 1) * 8192 + (addr - 0xE000) as usize,
+            _ => 0,
+        }
+    }
+
+    fn chr_addr(&self, addr: u16) -> usize {
+        let n = self.chr_bank_count(); // 1KB units
+        let chr_mode = (self.bank_select >> 7) & 1;
+        let addr = addr as usize;
+
+        // Each register selects 1KB CHR banks; R0/R1 are 2KB (bit 0 ignored)
+        let (bank_1k, offset) = if chr_mode == 0 {
+            // $0000-$0FFF = 2KB banks (R0, R1); $1000-$1FFF = 1KB banks (R2-R5)
+            match addr {
+                0x0000..=0x07FF => ((self.regs[0] & 0xFE) as usize, addr),
+                0x0800..=0x0FFF => ((self.regs[1] & 0xFE) as usize, addr - 0x0800),
+                0x1000..=0x13FF => (self.regs[2] as usize,          addr - 0x1000),
+                0x1400..=0x17FF => (self.regs[3] as usize,          addr - 0x1400),
+                0x1800..=0x1BFF => (self.regs[4] as usize,          addr - 0x1800),
+                0x1C00..=0x1FFF => (self.regs[5] as usize,          addr - 0x1C00),
+                _ => (0, addr),
+            }
+        } else {
+            // $0000-$0FFF = 1KB banks (R2-R5); $1000-$1FFF = 2KB banks (R0, R1)
+            match addr {
+                0x0000..=0x03FF => (self.regs[2] as usize,          addr),
+                0x0400..=0x07FF => (self.regs[3] as usize,          addr - 0x0400),
+                0x0800..=0x0BFF => (self.regs[4] as usize,          addr - 0x0800),
+                0x0C00..=0x0FFF => (self.regs[5] as usize,          addr - 0x0C00),
+                0x1000..=0x17FF => ((self.regs[0] & 0xFE) as usize, addr - 0x1000),
+                0x1800..=0x1FFF => ((self.regs[1] & 0xFE) as usize, addr - 0x1800),
+                _ => (0, addr),
+            }
+        };
+        (bank_1k % n) * 1024 + offset
+    }
+}
+
+impl Mapper for Mapper4 {
+    fn read_prg(&self, addr: u16) -> u8 {
+        if addr >= 0x6000 && addr <= 0x7FFF {
+            if self.prg_ram_enable {
+                return self.prg_ram[(addr - 0x6000) as usize];
+            }
+            return 0;
+        }
+        let off = self.prg_addr(addr);
+        self.prg_rom.get(off).copied().unwrap_or(0)
+    }
+
+    fn write_prg(&mut self, addr: u16, val: u8) {
+        match addr {
+            0x6000..=0x7FFF => {
+                if self.prg_ram_enable && !self.prg_ram_protect {
+                    self.prg_ram[(addr - 0x6000) as usize] = val;
+                }
+            }
+            // Even = bank select, odd = bank data
+            0x8000..=0x9FFF => {
+                if addr & 1 == 0 {
+                    self.bank_select = val;
+                } else {
+                    let reg = (self.bank_select & 0x07) as usize;
+                    self.regs[reg] = val;
+                }
+            }
+            // Even = mirroring, odd = PRG RAM protect
+            0xA000..=0xBFFF => {
+                if addr & 1 == 0 {
+                    self.mirroring = if val & 1 == 0 { Mirroring::Vertical } else { Mirroring::Horizontal };
+                } else {
+                    self.prg_ram_enable  = val & 0x80 != 0;
+                    self.prg_ram_protect = val & 0x40 != 0;
+                }
+            }
+            // Even = IRQ latch, odd = IRQ reload
+            0xC000..=0xDFFF => {
+                if addr & 1 == 0 {
+                    self.irq_latch = val;
+                } else {
+                    self.irq_counter = 0;
+                    self.irq_reload = true;
+                }
+            }
+            // Even = IRQ disable, odd = IRQ enable
+            0xE000..=0xFFFF => {
+                if addr & 1 == 0 {
+                    self.irq_enable = false;
+                    self.irq_pending = false;
+                } else {
+                    self.irq_enable = true;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn read_chr(&self, addr: u16) -> u8 {
+        let off = self.chr_addr(addr);
+        self.chr.get(off).copied().unwrap_or(0)
+    }
+
+    fn write_chr(&mut self, addr: u16, val: u8) {
+        if self.chr_is_ram {
+            let off = self.chr_addr(addr);
+            if off < self.chr.len() {
+                self.chr[off] = val;
+            }
+        }
+    }
+
+    fn mirroring(&self) -> Mirroring { self.mirroring }
+
+    fn notify_scanline(&mut self) {
+        if self.irq_counter == 0 || self.irq_reload {
+            self.irq_counter = self.irq_latch;
+            self.irq_reload = false;
+        } else {
+            self.irq_counter -= 1;
+        }
+        if self.irq_counter == 0 && self.irq_enable {
+            self.irq_pending = true;
+        }
+    }
+
+    fn irq_pending(&mut self) -> bool {
+        let p = self.irq_pending;
+        self.irq_pending = false;
+        p
+    }
+
+    fn save_mapper(&self, buf: &mut Vec<u8>) {
+        write_u8(buf, 4); // mapper tag
+        write_u8(buf, self.bank_select);
+        write_slice(buf, &self.regs);
+        write_bool(buf, self.prg_ram_enable);
+        write_bool(buf, self.prg_ram_protect);
+        write_u8(buf, self.irq_latch);
+        write_u8(buf, self.irq_counter);
+        write_bool(buf, self.irq_enable);
+        write_bool(buf, self.irq_reload);
+        write_bool(buf, self.irq_pending);
+        write_bytes(buf, &self.prg_ram);
+        write_bool(buf, self.chr_is_ram);
+        if self.chr_is_ram {
+            write_bytes(buf, &self.chr);
+        }
+    }
+
+    fn load_mapper(&mut self, data: &[u8], off: &mut usize) {
+        let _tag       = read_u8(data, off);
+        self.bank_select      = read_u8(data, off);
+        self.regs.copy_from_slice(read_slice(data, off, 8));
+        self.prg_ram_enable   = read_bool(data, off);
+        self.prg_ram_protect  = read_bool(data, off);
+        self.irq_latch        = read_u8(data, off);
+        self.irq_counter      = read_u8(data, off);
+        self.irq_enable       = read_bool(data, off);
+        self.irq_reload       = read_bool(data, off);
+        self.irq_pending      = read_bool(data, off);
+        self.prg_ram          = read_bytes(data, off);
+        let chr_is_ram        = read_bool(data, off);
         if chr_is_ram {
             self.chr = read_bytes(data, off);
         }
