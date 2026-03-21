@@ -29,7 +29,8 @@ export default function Emulator() {
   const [system,      setSystem]      = useState<"GB" | "NES" | null>(null);
   const [running,     setRunning]     = useState(false);
   const [loadError,   setLoadError]   = useState<string | null>(null);
-  const [saveSlots,   setSaveSlots]   = useState<(Uint8Array | null)[]>([null, null, null]);
+  const [saveSlots,      setSaveSlots]      = useState<(Uint8Array | null)[]>([null, null, null]);
+  const [saveTimestamps, setSaveTimestamps] = useState<(number | null)[]>([null, null, null]);
 
   // -----------------------------------------------------------------------
   // Audio helpers
@@ -177,38 +178,63 @@ export default function Emulator() {
       for (let i = 0; i < 3; i++) {
         try {
           const raw = localStorage.getItem(lsKey(i));
-          if (raw) {
-            const decoded = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
-            next[i] = decoded;
-          }
-        } catch {
-          // ignore corrupt entries
-        }
+          if (raw) next[i] = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
+        } catch { /* ignore corrupt entries */ }
+      }
+      return next;
+    });
+    setSaveTimestamps(() => {
+      const next: (number | null)[] = [null, null, null];
+      for (let i = 0; i < 3; i++) {
+        try {
+          const raw = localStorage.getItem(lsKey(i) + "_ts");
+          if (raw) next[i] = Number(raw);
+        } catch { /* ignore */ }
       }
       return next;
     });
   }, [romName, lsKey]);
 
-  const handleSave = useCallback(
-    (slot: number) => {
-      const emu = emulatorRef.current;
-      if (!emu) return;
-      const data = emu.save_state();
-      setSaveSlots((prev) => {
-        const next = [...prev] as (Uint8Array | null)[];
-        next[slot] = data;
-        return next;
-      });
-      // Persist to localStorage as base64
+  const persistSlot = useCallback(
+    (slot: number, data: Uint8Array, ts: number) => {
       try {
         const b64 = btoa(Array.from(data, (b) => String.fromCharCode(b)).join(""));
         localStorage.setItem(lsKey(slot), b64);
+        localStorage.setItem(lsKey(slot) + "_ts", String(ts));
       } catch {
         // quota exceeded or unavailable — silently skip
       }
     },
     [lsKey]
   );
+
+  const handleSave = useCallback(
+    (slot: number) => {
+      const emu = emulatorRef.current;
+      if (!emu) return;
+      const data = emu.save_state();
+      const ts = Date.now();
+      setSaveSlots((prev) => { const next = [...prev] as (Uint8Array | null)[];  next[slot] = data; return next; });
+      setSaveTimestamps((prev) => { const next = [...prev] as (number | null)[]; next[slot] = ts;   return next; });
+      persistSlot(slot, data, ts);
+    },
+    [persistSlot]
+  );
+
+  // Push save: shift slot[0]→[1]→[2] (dropping oldest), save to slot[0]
+  const handlePushSave = useCallback(() => {
+    const emu = emulatorRef.current;
+    if (!emu) return;
+    const data = emu.save_state();
+    const ts = Date.now();
+    setSaveSlots((prev) => [data, prev[0], prev[1]] as (Uint8Array | null)[]);
+    setSaveTimestamps((prev) => {
+      persistSlot(0, data, ts);
+      if (saveSlots[0]) persistSlot(1, saveSlots[0], prev[0] ?? ts);
+      if (saveSlots[1]) persistSlot(2, saveSlots[1], prev[1] ?? ts);
+      return [ts, prev[0], prev[1]];
+    });
+  }, [persistSlot, saveSlots]);
 
   const handleLoad = useCallback(
     (slot: number, slots: (Uint8Array | null)[]) => {
@@ -220,6 +246,15 @@ export default function Emulator() {
     },
     []
   );
+
+  // Spacebar → push save
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === "Space" && !e.repeat) { e.preventDefault(); handlePushSave(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handlePushSave]);
 
   // -----------------------------------------------------------------------
   // Joypad
@@ -421,11 +456,32 @@ export default function Emulator() {
           boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
         }}>
           {panelHeader("Save States")}
+          <button
+            onClick={handlePushSave}
+            disabled={!romName}
+            style={{
+              width: "100%", marginBottom: 8,
+              padding: "4px 0", borderRadius: 4, fontSize: 9, fontFamily: "monospace",
+              letterSpacing: "0.1em",
+              color: romName ? "#facc15" : "#1a1a1a",
+              background: "rgba(40,35,5,0.5)", border: "1px solid #3a3000",
+              cursor: romName ? "pointer" : "not-allowed",
+              transition: "all 0.15s",
+            }}
+            title="Push save: save to ①, shift ①→② ②→③, drop ③"
+          >PUSH SAVE</button>
           {([0, 1, 2] as const).map((slot) => (
             <div key={slot} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: slot < 2 ? 7 : 0 }}>
-              <span style={{ color: "#252525", fontSize: 9, fontFamily: "monospace" }}>
-                {["①","②","③"][slot]}
-              </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <span style={{ color: "#252525", fontSize: 9, fontFamily: "monospace" }}>
+                  {["①","②","③"][slot]}
+                </span>
+                {saveTimestamps[slot] && (
+                  <span style={{ color: "#1e1e1e", fontSize: 7, fontFamily: "monospace" }}>
+                    {new Date(saveTimestamps[slot]!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </span>
+                )}
+              </div>
               <div style={{ display: "flex", gap: 4 }}>
                 <button
                   onClick={() => handleSave(slot)}
