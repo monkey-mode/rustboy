@@ -395,6 +395,8 @@ impl NesPpu {
             }
             if self.scanline > 261 {
                 self.scanline = 0;
+                // Notify for scanline 0 (missed by the check above at scanline=262).
+                cartridge.notify_scanline();
                 self.frame = self.frame.wrapping_add(1);
                 self.frame_ready = true;
             }

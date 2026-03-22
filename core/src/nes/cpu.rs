@@ -78,8 +78,9 @@ impl NesCpu {
         self.cycles += 8;
     }
 
-    pub fn irq(&mut self, bus: &mut NesBus) {
-        if self.p & FLAG_I != 0 { return; }
+    /// Returns true if the IRQ was actually taken (FLAG_I was clear).
+    pub fn irq(&mut self, bus: &mut NesBus) -> bool {
+        if self.p & FLAG_I != 0 { return false; }
         self.push_word(bus, self.pc);
         self.push(bus, (self.p | FLAG_U) & !FLAG_B);
         self.p |= FLAG_I;
@@ -87,6 +88,7 @@ impl NesCpu {
         let hi = bus.read(0xFFFF) as u16;
         self.pc = (hi << 8) | lo;
         self.cycles += 7;
+        true
     }
 
     /// Execute one instruction and return the number of cycles consumed.

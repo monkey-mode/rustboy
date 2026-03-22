@@ -58,15 +58,16 @@ impl NesEmulator {
                 self.cpu.nmi(&mut self.bus);
             }
 
-            // Handle IRQ (dispatch takes 7 CPU cycles — step PPU/APU for them)
+            // Handle IRQ (dispatch takes 7 CPU cycles — only step PPU/APU if taken)
             if self.pending_irq {
                 self.pending_irq = false;
-                self.cpu.irq(&mut self.bus);
-                let (_, nmi2, irq2) = self.bus.step_ppu(7);
-                self.bus.step_apu(7);
-                total_cycles += 7;
-                if nmi2 { self.pending_nmi = true; }
-                if irq2 { self.pending_irq = true; }
+                if self.cpu.irq(&mut self.bus) {
+                    let (_, nmi2, irq2) = self.bus.step_ppu(7);
+                    self.bus.step_apu(7);
+                    total_cycles += 7;
+                    if nmi2 { self.pending_nmi = true; }
+                    if irq2 { self.pending_irq = true; }
+                }
             }
 
             // Execute one CPU instruction
