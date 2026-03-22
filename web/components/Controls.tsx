@@ -38,7 +38,7 @@ export default function Controls({ onButton }: ControlsProps) {
         case "ArrowLeft":  case "a": case "A": button = BUTTON.LEFT;   break;
         case "ArrowUp":    case "w": case "W": button = BUTTON.UP;     break;
         case "ArrowDown":  case "s": case "S": button = BUTTON.DOWN;   break;
-        case "z": case "Z": case "j": case "J": button = BUTTON.A;      break;
+        case "z": case "Z": case "j": case "J": case " ": button = BUTTON.A; break;
         case "x": case "X": case "k": case "K": button = BUTTON.B;      break;
         case "i": case "I": case "Shift":        button = BUTTON.SELECT; break;
         case "l": case "L": case "Enter":        button = BUTTON.START;  break;

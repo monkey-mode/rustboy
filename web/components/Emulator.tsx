@@ -247,14 +247,17 @@ export default function Emulator() {
     []
   );
 
-  // Spacebar → push save
+  // 1/2/3 → save to slot 0/1/2
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === "Space" && !e.repeat) { e.preventDefault(); handlePushSave(); }
+      if (e.repeat) return;
+      if (e.key === "1") { e.preventDefault(); handleSave(0); }
+      else if (e.key === "2") { e.preventDefault(); handleSave(1); }
+      else if (e.key === "3") { e.preventDefault(); handleSave(2); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handlePushSave]);
+  }, [handleSave]);
 
   // -----------------------------------------------------------------------
   // Joypad
@@ -289,9 +292,9 @@ export default function Emulator() {
 
   const panelHeader = (label: string) => (
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-      <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, #2a2a2a)" }} />
-      <span style={{ color: "#333", fontSize: 9, letterSpacing: "0.25em", fontFamily: "monospace", textTransform: "uppercase" }}>{label}</span>
-      <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, #2a2a2a, transparent)" }} />
+      <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, #3a3a3a)" }} />
+      <span style={{ color: "#666", fontSize: 9, letterSpacing: "0.25em", fontFamily: "monospace", textTransform: "uppercase" }}>{label}</span>
+      <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, #3a3a3a, transparent)" }} />
     </div>
   );
 
@@ -343,14 +346,14 @@ export default function Emulator() {
                 {row.map(({ k, sub }) => (
                   <div key={k} style={{
                     width: 26, height: 26, borderRadius: 5,
-                    background: "linear-gradient(180deg, #1e1e1e 0%, #161616 100%)",
-                    border: "1px solid #2a2a2a", borderBottom: "2px solid #0a0a0a",
+                    background: "linear-gradient(180deg, #242424 0%, #1a1a1a 100%)",
+                    border: "1px solid #383838", borderBottom: "2px solid #0f0f0f",
                     display: "flex", flexDirection: "column",
                     alignItems: "center", justifyContent: "center",
                     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
                   }}>
-                    <span style={{ color: "#3a3a3a", fontSize: 9, fontFamily: "monospace", fontWeight: 700, lineHeight: 1 }}>{k}</span>
-                    <span style={{ color: "#252525", fontSize: 6, lineHeight: 1 }}>{sub}</span>
+                    <span style={{ color: "#888", fontSize: 9, fontFamily: "monospace", fontWeight: 700, lineHeight: 1 }}>{k}</span>
+                    <span style={{ color: "#555", fontSize: 6, lineHeight: 1 }}>{sub}</span>
                   </div>
                 ))}
               </div>
@@ -358,7 +361,7 @@ export default function Emulator() {
           </div>
 
           {/* IJKL cluster */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, marginBottom: 6 }}>
             {[
               [{ k: "I", label: "SEL" }],
               [{ k: "J", label: "A" }, { k: "K", label: "B" }, { k: "L", label: "STA" }],
@@ -367,16 +370,47 @@ export default function Emulator() {
                 {row.map(({ k, label }) => (
                   <div key={k} style={{
                     width: 26, height: 26, borderRadius: 5,
-                    background: "linear-gradient(180deg, #1e1e1e 0%, #161616 100%)",
-                    border: "1px solid #2a2a2a", borderBottom: "2px solid #0a0a0a",
+                    background: "linear-gradient(180deg, #242424 0%, #1a1a1a 100%)",
+                    border: "1px solid #383838", borderBottom: "2px solid #0f0f0f",
                     display: "flex", flexDirection: "column",
                     alignItems: "center", justifyContent: "center",
                     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
                   }}>
-                    <span style={{ color: "#3a3a3a", fontSize: 9, fontFamily: "monospace", fontWeight: 700, lineHeight: 1 }}>{k}</span>
-                    <span style={{ color: "#252525", fontSize: 6, lineHeight: 1 }}>{label}</span>
+                    <span style={{ color: "#888", fontSize: 9, fontFamily: "monospace", fontWeight: 700, lineHeight: 1 }}>{k}</span>
+                    <span style={{ color: "#555", fontSize: 6, lineHeight: 1 }}>{label}</span>
                   </div>
                 ))}
+              </div>
+            ))}
+          </div>
+
+          {/* Space = A */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 6 }}>
+            <div style={{
+              width: 80, height: 18, borderRadius: 4,
+              background: "linear-gradient(180deg, #242424 0%, #1a1a1a 100%)",
+              border: "1px solid #383838", borderBottom: "2px solid #0f0f0f",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
+            }}>
+              <span style={{ color: "#888", fontSize: 7, fontFamily: "monospace", fontWeight: 700 }}>SPC</span>
+              <span style={{ color: "#555", fontSize: 6 }}>A</span>
+            </div>
+          </div>
+
+          {/* 1/2/3 = save slots */}
+          <div style={{ display: "flex", justifyContent: "center", gap: 2 }}>
+            {([["1","①"],["2","②"],["3","③"]] as const).map(([k, label]) => (
+              <div key={k} style={{
+                width: 26, height: 26, borderRadius: 5,
+                background: "linear-gradient(180deg, #1e1e1e 0%, #161616 100%)",
+                border: "1px solid #2a2a2a", borderBottom: "2px solid #0a0a0a",
+                display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)",
+              }}>
+                <span style={{ color: "#888", fontSize: 9, fontFamily: "monospace", fontWeight: 700, lineHeight: 1 }}>{k}</span>
+                <span style={{ color: "#555", fontSize: 7, lineHeight: 1 }}>{label}</span>
               </div>
             ))}
           </div>
@@ -394,7 +428,7 @@ export default function Emulator() {
             animation: running ? "led-pulse 2s ease-in-out infinite" : "none",
             flexShrink: 0,
           }} />
-          <span style={{ color: running ? "#2a3a2a" : "#1f1f1f", fontSize: 9,
+          <span style={{ color: running ? "#4a8a4a" : "#444", fontSize: 9,
             fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase" }}>
             {running ? "Running" : "Standby"}
           </span>
@@ -430,21 +464,21 @@ export default function Emulator() {
                 color: sysAccent, fontSize: 11, fontWeight: 800,
                 fontFamily: "monospace", letterSpacing: "0.1em",
               }}>{system}</div>
-              <p style={{ color: "#252525", fontSize: 9, fontFamily: "monospace",
+              <p style={{ color: "#666", fontSize: 9, fontFamily: "monospace",
                 lineHeight: 1.7, wordBreak: "break-all" }}>{romName}</p>
-              <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #181818" }}>
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #2a2a2a" }}>
                 {(system === "NES"
                   ? [["256×240", ""], ["60 fps", ""], ["Ricoh 2A03", ""]]
                   : [["160×144", ""], ["59.7 fps", ""], ["Sharp LR35902", ""]]
                 ).map(([val]) => (
-                  <div key={val} style={{ color: "#222", fontSize: 9, fontFamily: "monospace", marginBottom: 2 }}>
+                  <div key={val} style={{ color: "#555", fontSize: 9, fontFamily: "monospace", marginBottom: 2 }}>
                     {val}
                   </div>
                 ))}
               </div>
             </>
           ) : (
-            <span style={{ color: "#1f1f1f", fontSize: 9, fontFamily: "monospace" }}>No ROM loaded</span>
+            <span style={{ color: "#444", fontSize: 9, fontFamily: "monospace" }}>No ROM loaded</span>
           )}
         </div>
 
@@ -473,11 +507,11 @@ export default function Emulator() {
           {([0, 1, 2] as const).map((slot) => (
             <div key={slot} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: slot < 2 ? 7 : 0 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                <span style={{ color: "#252525", fontSize: 9, fontFamily: "monospace" }}>
+                <span style={{ color: "#666", fontSize: 9, fontFamily: "monospace" }}>
                   {["①","②","③"][slot]}
                 </span>
                 {saveTimestamps[slot] && (
-                  <span style={{ color: "#1e1e1e", fontSize: 7, fontFamily: "monospace" }}>
+                  <span style={{ color: "#555", fontSize: 7, fontFamily: "monospace" }}>
                     {new Date(saveTimestamps[slot]!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                   </span>
                 )}
