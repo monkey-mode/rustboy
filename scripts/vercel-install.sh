@@ -24,3 +24,4 @@ fi
 echo "Installing Next.js dependencies..."
 cd web
 npm install
+cd ..
