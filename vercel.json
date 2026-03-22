@@ -1,6 +1,6 @@
 {
   "framework": null,
-  "installCommand": "cd web && npm ci",
+  "installCommand": "bash scripts/vercel-install.sh",
   "buildCommand": "bash scripts/vercel-build.sh",
   "outputDirectory": "web/out"
 }

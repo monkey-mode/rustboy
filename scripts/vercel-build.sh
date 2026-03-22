@@ -1,3 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# shellcheck source=/dev/null
+source "${HOME}/.cargo/env"
+
 # ── Build WASM core ───────────────────────────────────────────────────────────
 echo "Building WASM..."
 cd core
