@@ -14,3 +14,4 @@ cd ..
 echo "Building Next.js..."
 cd web
 npm run build
+cd ..
