@@ -1,0 +1,6 @@
+{
+  "installCommand": "cd web && npm ci",
+  "buildCommand": "bash scripts/vercel-build.sh",
+  "outputDirectory": "web/.next",
+  "framework": "nextjs"
+}
