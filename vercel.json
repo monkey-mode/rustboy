@@ -1,6 +1,0 @@
-{
-  "framework": null,
-  "installCommand": "bash scripts/vercel-install.sh",
-  "buildCommand": "bash scripts/vercel-build.sh",
-  "outputDirectory": "web/out"
-}
